@@ -1,0 +1,71 @@
+{
+    "tasks": [
+        {
+            "label": "colcon build phoenix",
+            "detail": "Build phoenix package",
+            "type": "shell",
+            "command": "colcon",
+            "args": [
+                "build",
+                "--merge-install",
+                "--packages-select",
+                "phoenix"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "colcon build phoenix_msgs",
+            "detail": "Build phoenix_msgs package",
+            "type": "shell",
+            "command": "colcon",
+            "args": [
+                "build",
+                "--merge-install",
+                "--packages-select",
+                "phoenix_msgs"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "colcon build phoenix_gui",
+            "detail": "Build phoenix_gui package",
+            "type": "shell",
+            "command": "colcon",
+            "args": [
+                "build",
+                "--merge-install",
+                "--packages-select",
+                "phoenix_gui"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "deploy phoenix_gui on Windows",
+            "detail": "Deploy phoenix_gui package",
+            "type": "shell",
+            "command": "windeployqt",
+            "args": [
+                "--no-compiler-runtimes",
+                "${workspaceFolder}\\install\\phoenix_gui\\lib\\phoenix_gui\\gui.exe"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        }
+    ],
+    "version": "2.0.0"
+}
