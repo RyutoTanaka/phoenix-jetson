@@ -1,0 +1,3 @@
+[submodule "phoenix-firmware"]
+	path = phoenix-firmware
+	url = https://github.com/Nkyoku/phoenix-firmware.git
