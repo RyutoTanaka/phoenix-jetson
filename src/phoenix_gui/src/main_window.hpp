@@ -1,24 +1,24 @@
 ﻿#pragma once
 
-#include <QtWidgets/QMainWindow>
-#include <QtWidgets/QTreeWidgetItem>
-#include <QtWidgets/QGraphicsScene>
+#include "gamepad_thread.hpp"
+#include "image_viewer.hpp"
+#include "node_thread.hpp"
+#include <QtCore/QFile>
 #include <QtWidgets/QGraphicsEllipseItem>
 #include <QtWidgets/QGraphicsLineItem>
-#include <QtCore/QFile>
+#include <QtWidgets/QGraphicsScene>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QTreeWidgetItem>
+#include <phoenix_msgs/msg/stream_data_adc2.hpp>
+#include <phoenix_msgs/msg/stream_data_motion.hpp>
+#include <phoenix_msgs/msg/stream_data_status.hpp>
+#include <phoenix_msgs/srv/clear_error.hpp>
+#include <phoenix_msgs/srv/program_fpga.hpp>
+#include <phoenix_msgs/srv/program_nios.hpp>
+#include <phoenix_msgs/srv/set_speed.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <phoenix_msgs/msg/stream_data_status.hpp>
-#include <phoenix_msgs/msg/stream_data_adc2.hpp>
-#include <phoenix_msgs/msg/stream_data_motion.hpp>
-#include <phoenix_msgs/srv/clear_error.hpp>
-#include <phoenix_msgs/srv/set_speed.hpp>
-#include <phoenix_msgs/srv/program_nios.hpp>
-#include <phoenix_msgs/srv/program_fpga.hpp>
-#include "node_thread.hpp"
-#include "image_viewer.hpp"
-#include "gamepad_thread.hpp"
 
 class Ui_MainWindow;
 
@@ -40,16 +40,16 @@ private:
      * 設定ファイルに状態を保存する
      */
     void saveSettings(void) const;
-    
-    //void closeEvent(QCloseEvent *event) override;
+
+    // void closeEvent(QCloseEvent *event) override;
 
     virtual bool eventFilter(QObject *obj, QEvent *event) override;
-    
+
     Q_SLOT void connectToGamepad(int index);
 
     Q_SLOT void reloadNamespaceList(void);
 
-    Q_SLOT void connectToNodes(const QString &namespace_name);
+    Q_SLOT void connectToNodes(QString namespace_name);
 
     Q_SLOT void updateTelemertyTreeItems(void);
 
@@ -81,12 +81,12 @@ private:
     struct {
         QGraphicsScene *scene;
         QGraphicsLineItem *cross_h, *cross_v;
-        double velocity_scale_x; // -1.0 ~ +1.0
-        double velocity_scale_y; // -1.0 ~ +1.0
+        double velocity_scale_x;     // -1.0 ~ +1.0
+        double velocity_scale_y;     // -1.0 ~ +1.0
         double velocity_scale_omega; // degree
     } _Pad;
 
-    
+
 
     /// telemetryTreeに表示する項目
     struct TreeItems_t {
@@ -143,7 +143,7 @@ private:
         std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> motion;
     } _LastMessages;
 
-    struct Clients_t{
+    struct Clients_t {
         rclcpp::Client<phoenix_msgs::srv::SetSpeed>::SharedPtr set_speed;
         std::shared_future<std::shared_ptr<phoenix_msgs::srv::SetSpeed_Response>> set_speed_future;
         rclcpp::Client<phoenix_msgs::srv::ProgramNios>::SharedPtr program_nios;

@@ -1,18 +1,18 @@
 ﻿#include "main_window.hpp"
+#include "cintelhex/cintelhex.h"
+#include "format_value.hpp"
 #include "ui_main_window.h"
 #include <QtCore/QDebug>
-#include <QtCore/QTimer>
 #include <QtCore/QRandomGenerator>
-#include <QtGui/QCloseEvent>
-#include <QtWidgets/QFileDialog>
-#include <QtWidgets/QMessageBox>
 #include <QtCore/QSettings>
 #include <QtCore/QSysInfo>
+#include <QtCore/QTimer>
+#include <QtGui/QCloseEvent>
+#include <QtWidgets/QFileDialog>
 #include <QtWidgets/QGestureEvent>
-#include <chrono>
+#include <QtWidgets/QMessageBox>
 #include <algorithm>
-#include "format_value.hpp"
-#include "cintelhex/cintelhex.h"
+#include <chrono>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // UIを生成する
@@ -140,7 +140,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
                     double d = pinch->rotationAngle() - pinch->lastRotationAngle();
                     if (d <= -180.0) {
                         d += 360.0;
-                    } else if (180.0 <= d) {
+                    }
+                    else if (180.0 <= d) {
                         d -= 360.0;
                     }
                     _Pad.velocity_scale_omega -= d;
@@ -150,7 +151,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
                 }
             }
             return true;
-        } else if (event->type() == QEvent::Resize) {
+        }
+        else if (event->type() == QEvent::Resize) {
             int width = viewport->width();
             int height = viewport->height();
             _Pad.scene->setSceneRect(0, 0, width, height);
@@ -202,7 +204,8 @@ void MainWindow::reloadNamespaceList(void) {
         _Ui->namespaceComboBox->addItems(namespace_list);
         _Ui->namespaceComboBox->setCurrentText(current_text);
         _Ui->namespaceComboBox->blockSignals(false);
-    } else {
+    }
+    else {
         _Ui->namespaceComboBox->clear();
         _Ui->namespaceComboBox->blockSignals(true);
         _Ui->namespaceComboBox->addItems(namespace_list);
@@ -210,139 +213,155 @@ void MainWindow::reloadNamespaceList(void) {
     }
 }
 
-void MainWindow::connectToNodes(const QString &namespace_name) {
+void MainWindow::connectToNodes(QString namespace_name) {
     // 既存のノードとスレッドを終了する
     quitNodeThread();
 
-    if (!namespace_name.isEmpty()) {
-        rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, 1));
-        qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT).durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
-
-        // ノードとスレッドを作成する
-        _NodeThread = new NodeThread(this, createNode());
-        connect(_NodeThread, &NodeThread::finished, _NodeThread, &QObject::deleteLater);
-
-        // batteryトピックを受信するSubscriptionを作成する
-        QString battery_topic_name = namespace_name + "/battery";
-        _Subscribers.battery = _NodeThread->node()->create_subscription<sensor_msgs::msg::BatteryState>(
-            battery_topic_name.toStdString(), qos, [this](const std::shared_ptr<sensor_msgs::msg::BatteryState> msg) { std::atomic_store(&_LastMessages.battery, msg); });
-
-        // stream_data_statusトピックを受信するSubscriptionを作成する
-        QString status_topic_name = namespace_name + "/phoenix_status";
-        _Subscribers.status = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataStatus>(
-            status_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataStatus> msg) { std::atomic_store(&_LastMessages.status, msg); });
-
-        // stream_data_adc2トピックを受信するSubscriptionを作成する
-        QString adc2_topic_name = namespace_name + "/phoenix_adc2";
-        _Subscribers.adc2 = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataAdc2>(
-            adc2_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> msg) {
-                if (!_LastMessages.adc2) {
-                    std::atomic_store(&_LastMessages.adc2, msg);
-                } else {
-                    /*std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> last_msg = _LastMessages.adc2;
-                    msg->dc48v_voltage = std::max(msg->dc48v_voltage, last_msg->dc48v_voltage);
-                    msg->dribble_current = std::max(msg->dribble_current, last_msg->dribble_current);*/
-                    std::atomic_store(&_LastMessages.adc2, msg);
-                }
-            });
-
-        // stream_data_motionトピックを受信するSubscriptionを作成する
-        QString motion_topic_name = namespace_name + "/phoenix_motion";
-        _Subscribers.motion = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataMotion>(
-            motion_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> msg) {
-                std::atomic_store(&_LastMessages.motion, msg);
-                std::shared_ptr<QFile> file = _LogFile;
-                if (file) {
-                    QTextStream stream(file.get());
-                    QChar sep(',');
-                    std::shared_ptr<sensor_msgs::msg::BatteryState> battery_msg = _LastMessages.battery;
-                    std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> adc2_msg = _LastMessages.adc2;
-                    float battery_voltage = battery_msg ? battery_msg->voltage : 0.0f;
-                    float battery_current = battery_msg ? -battery_msg->current : 0.0f;
-                    float dc48v_voltage = adc2_msg ? adc2_msg->dc48v_voltage : 0.0f;
-                    stream << (0.001 * _LogFrameNumber) << sep;
-                    stream << msg->wheel_velocity_meas[0] << sep;
-                    stream << msg->wheel_velocity_meas[1] << sep;
-                    stream << msg->wheel_velocity_meas[2] << sep;
-                    stream << msg->wheel_velocity_meas[3] << sep;
-                    stream << msg->wheel_current_meas_q[0] << sep;
-                    stream << msg->wheel_current_meas_q[1] << sep;
-                    stream << msg->wheel_current_meas_q[2] << sep;
-                    stream << msg->wheel_current_meas_q[3] << sep;
-                    stream << msg->wheel_velocity_ref[0] << sep;
-                    stream << msg->wheel_velocity_ref[1] << sep;
-                    stream << msg->wheel_velocity_ref[2] << sep;
-                    stream << msg->wheel_velocity_ref[3] << sep;
-                    stream << msg->wheel_current_ref[0] << sep;
-                    stream << msg->wheel_current_ref[1] << sep;
-                    stream << msg->wheel_current_ref[2] << sep;
-                    stream << msg->wheel_current_ref[3] << sep;
-                    stream << msg->wheel_current_limit[0] << sep;
-                    stream << msg->wheel_current_limit[1] << sep;
-                    stream << msg->wheel_current_limit[2] << sep;
-                    stream << msg->wheel_current_limit[3] << sep;
-                    stream << msg->machine_velocity[0] << sep;
-                    stream << msg->machine_velocity[1] << sep;
-                    stream << msg->machine_velocity[2] << sep;
-                    stream << msg->slip_flags << sep;
-                    stream << msg->accelerometer[0] << sep;
-                    stream << msg->accelerometer[1] << sep;
-                    stream << msg->accelerometer[2] << sep;
-                    stream << msg->gyroscope[0] << sep;
-                    stream << msg->gyroscope[1] << sep;
-                    stream << msg->gyroscope[2] << sep;
-                    stream << dc48v_voltage << sep;
-                    stream << battery_voltage << sep;
-                    stream << battery_current << Qt::endl;
-                    _LogFrameNumber++;
-                }
-            });
-
-        // imageトピックを受信するSubscriptionを作成する
-        _Subscribers.image = _NodeThread->node()->create_subscription<sensor_msgs::msg::Image>(
-            "/video_source/raw", qos, [this](const std::shared_ptr<sensor_msgs::msg::Image> msg) { _ImageViewer->setImage(msg); emit updateRequest(); });
-
-        // 指令値を設定するサービスを見つける
-        QString set_speed_service_name = namespace_name + "/set_speed";
-        _Clients.set_speed = _NodeThread->node()->create_client<phoenix_msgs::srv::SetSpeed>(set_speed_service_name.toStdString());
-        if (_Clients.set_speed->wait_for_service(std::chrono::milliseconds(1000)) == false) {
-            _Clients.set_speed.reset();
-            _Ui->enableControllerCheckBox->setChecked(false);
-        }
-
-        // NiosII書き換えサービスを見つける
-        QString program_nios_service_name = namespace_name + "/program_nios";
-        _Clients.program_nios = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramNios>(program_nios_service_name.toStdString());
-        if (_Clients.program_nios->wait_for_service(std::chrono::milliseconds(1000)) == false) {
-            _Clients.program_nios.reset();
-            _Ui->programNiosButton->setEnabled(false);
-        } else {
-            _Ui->programNiosButton->setEnabled(true);
-        }
-
-        // FPGA書き換えサービスを見つける
-        QString program_fpga_service_name = namespace_name + "/program_fpga";
-        _Clients.program_fpga = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramFpga>(program_fpga_service_name.toStdString());
-        if (_Clients.program_fpga->wait_for_service(std::chrono::milliseconds(1000)) == false) {
-            _Clients.program_fpga.reset();
-            _Ui->programFpgaButton->setEnabled(false);
-        } else {
-            _Ui->programFpgaButton->setEnabled(true);
-        }
-
-        // スレッドを実行
-        _NodeThread->start();
-    } else {
+    if (namespace_name.isEmpty()) {
         // 画面を初期化する
         _ImageViewer->setImage(nullptr);
         emit updateRequest();
+        return;
     }
+    
+    // ルート名前空間の場合は'/'が二重になってしまうので'/'を削除する
+    if (namespace_name.endsWith('/')) {
+        namespace_name.chop(1);
+    }
+
+    rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, 1));
+    qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT).durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
+
+    // ノードとスレッドを作成する
+    _NodeThread = new NodeThread(this, createNode());
+    connect(_NodeThread, &NodeThread::finished, _NodeThread, &QObject::deleteLater);
+
+    // batteryトピックを受信するSubscriptionを作成する
+    QString battery_topic_name = namespace_name + "/battery";
+    _Subscribers.battery = _NodeThread->node()->create_subscription<sensor_msgs::msg::BatteryState>(
+        battery_topic_name.toStdString(), qos, [this](const std::shared_ptr<sensor_msgs::msg::BatteryState> msg) {
+            std::atomic_store(&_LastMessages.battery, msg);
+        });
+
+    // stream_data_statusトピックを受信するSubscriptionを作成する
+    QString status_topic_name = namespace_name + "/phoenix_status";
+    _Subscribers.status = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataStatus>(
+        status_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataStatus> msg) {
+            std::atomic_store(&_LastMessages.status, msg);
+        });
+
+    // stream_data_adc2トピックを受信するSubscriptionを作成する
+    QString adc2_topic_name = namespace_name + "/phoenix_adc2";
+    _Subscribers.adc2 = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataAdc2>(
+        adc2_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> msg) {
+            if (!_LastMessages.adc2) {
+                std::atomic_store(&_LastMessages.adc2, msg);
+            }
+            else {
+                /*std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> last_msg = _LastMessages.adc2;
+                msg->dc48v_voltage = std::max(msg->dc48v_voltage, last_msg->dc48v_voltage);
+                msg->dribble_current = std::max(msg->dribble_current, last_msg->dribble_current);*/
+                std::atomic_store(&_LastMessages.adc2, msg);
+            }
+        });
+
+    // stream_data_motionトピックを受信するSubscriptionを作成する
+    QString motion_topic_name = namespace_name + "/phoenix_motion";
+    _Subscribers.motion = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataMotion>(
+        motion_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> msg) {
+            std::atomic_store(&_LastMessages.motion, msg);
+            std::shared_ptr<QFile> file = _LogFile;
+            if (file) {
+                QTextStream stream(file.get());
+                QChar sep(',');
+                std::shared_ptr<sensor_msgs::msg::BatteryState> battery_msg = _LastMessages.battery;
+                std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> adc2_msg = _LastMessages.adc2;
+                float battery_voltage = battery_msg ? battery_msg->voltage : 0.0f;
+                float battery_current = battery_msg ? -battery_msg->current : 0.0f;
+                float dc48v_voltage = adc2_msg ? adc2_msg->dc48v_voltage : 0.0f;
+                stream << (0.001 * _LogFrameNumber) << sep;
+                stream << msg->wheel_velocity_meas[0] << sep;
+                stream << msg->wheel_velocity_meas[1] << sep;
+                stream << msg->wheel_velocity_meas[2] << sep;
+                stream << msg->wheel_velocity_meas[3] << sep;
+                stream << msg->wheel_current_meas_q[0] << sep;
+                stream << msg->wheel_current_meas_q[1] << sep;
+                stream << msg->wheel_current_meas_q[2] << sep;
+                stream << msg->wheel_current_meas_q[3] << sep;
+                stream << msg->wheel_velocity_ref[0] << sep;
+                stream << msg->wheel_velocity_ref[1] << sep;
+                stream << msg->wheel_velocity_ref[2] << sep;
+                stream << msg->wheel_velocity_ref[3] << sep;
+                stream << msg->wheel_current_ref[0] << sep;
+                stream << msg->wheel_current_ref[1] << sep;
+                stream << msg->wheel_current_ref[2] << sep;
+                stream << msg->wheel_current_ref[3] << sep;
+                stream << msg->wheel_current_limit[0] << sep;
+                stream << msg->wheel_current_limit[1] << sep;
+                stream << msg->wheel_current_limit[2] << sep;
+                stream << msg->wheel_current_limit[3] << sep;
+                stream << msg->machine_velocity[0] << sep;
+                stream << msg->machine_velocity[1] << sep;
+                stream << msg->machine_velocity[2] << sep;
+                stream << msg->slip_flags << sep;
+                stream << msg->accelerometer[0] << sep;
+                stream << msg->accelerometer[1] << sep;
+                stream << msg->accelerometer[2] << sep;
+                stream << msg->gyroscope[0] << sep;
+                stream << msg->gyroscope[1] << sep;
+                stream << msg->gyroscope[2] << sep;
+                stream << dc48v_voltage << sep;
+                stream << battery_voltage << sep;
+                stream << battery_current << Qt::endl;
+                _LogFrameNumber++;
+            }
+        });
+
+    // imageトピックを受信するSubscriptionを作成する
+    _Subscribers.image =
+        _NodeThread->node()->create_subscription<sensor_msgs::msg::Image>("/video_source/raw", qos, [this](const std::shared_ptr<sensor_msgs::msg::Image> msg) {
+            _ImageViewer->setImage(msg);
+            emit updateRequest();
+        });
+
+    // 指令値を設定するサービスを見つける
+    QString set_speed_service_name = namespace_name + "/set_speed";
+    _Clients.set_speed = _NodeThread->node()->create_client<phoenix_msgs::srv::SetSpeed>(set_speed_service_name.toStdString());
+    if (_Clients.set_speed->wait_for_service(std::chrono::milliseconds(1000)) == false) {
+        _Clients.set_speed.reset();
+        _Ui->enableControllerCheckBox->setChecked(false);
+    }
+
+    // NiosII書き換えサービスを見つける
+    QString program_nios_service_name = namespace_name + "/program_nios";
+    _Clients.program_nios = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramNios>(program_nios_service_name.toStdString());
+    if (_Clients.program_nios->wait_for_service(std::chrono::milliseconds(1000)) == false) {
+        _Clients.program_nios.reset();
+        _Ui->programNiosButton->setEnabled(false);
+    }
+    else {
+        _Ui->programNiosButton->setEnabled(true);
+    }
+
+    // FPGA書き換えサービスを見つける
+    QString program_fpga_service_name = namespace_name + "/program_fpga";
+    _Clients.program_fpga = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramFpga>(program_fpga_service_name.toStdString());
+    if (_Clients.program_fpga->wait_for_service(std::chrono::milliseconds(1000)) == false) {
+        _Clients.program_fpga.reset();
+        _Ui->programFpgaButton->setEnabled(false);
+    }
+    else {
+        _Ui->programFpgaButton->setEnabled(true);
+    }
+
+    // スレッドを実行
+    _NodeThread->start();
 }
 
 void MainWindow::updateTelemertyTreeItems(void) {
     static constexpr int COL = 1;
     if (_LastMessages.battery) {
-        //auto msg = std::atomic_exchange(&_LastMessages.battery, std::shared_ptr<sensor_msgs::msg::BatteryState>());
+        // auto msg = std::atomic_exchange(&_LastMessages.battery, std::shared_ptr<sensor_msgs::msg::BatteryState>());
         auto &msg = _LastMessages.battery;
         _TreeItems.battery.present->setText(COL, boolToString(msg->present));
         _TreeItems.battery.voltage->setText(COL, QString::number(msg->voltage, 'f', 3));
@@ -365,14 +384,14 @@ void MainWindow::updateTelemertyTreeItems(void) {
         _TreeItems.fault.load_switch->setText(COL, boolArrayToString(motor_text_list, msg->fault_motor_load_switch));
     }
     if (_LastMessages.adc2) {
-        //auto msg = std::atomic_exchange(&_LastMessages.adc2, std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2>());
+        // auto msg = std::atomic_exchange(&_LastMessages.adc2, std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2>());
         auto &msg = _LastMessages.adc2;
         _TreeItems.adc2.dc48v_voltage->setText(COL, QString::number(msg->dc48v_voltage, 'f', 3));
         _TreeItems.adc2.dribble_voltage->setText(COL, QString::number(msg->dribble_voltage, 'f', 3));
         _TreeItems.adc2.dribble_current->setText(COL, QString::number(msg->dribble_current, 'f', 3));
     }
     if (_LastMessages.motion) {
-        //auto msg = std::atomic_exchange(&_LastMessages.motion, std::shared_ptr<phoenix_msgs::msg::StreamDataMotion>());
+        // auto msg = std::atomic_exchange(&_LastMessages.motion, std::shared_ptr<phoenix_msgs::msg::StreamDataMotion>());
         auto &msg = _LastMessages.motion;
         for (int index = 0; index < 3; index++) {
             _TreeItems.motion.accelerometer[index]->setText(COL, QString::number(msg->accelerometer[index], 'f', 3));
@@ -549,7 +568,8 @@ void MainWindow::sendCommand(void) {
                 request->speed_omega = -10.0f * input_state->rightStickX;
                 request->dribble_power = -input_state->rightTrigger;
             }
-        } else {
+        }
+        else {
             request->speed_x = _Pad.velocity_scale_x;
             request->speed_y = _Pad.velocity_scale_y;
             request->speed_omega = _Pad.velocity_scale_omega * 0.1;
@@ -575,7 +595,8 @@ void MainWindow::programNios(void) {
     do {
         uint32_t offset;
         err = ihex_rs_iterate_data(recored_set, &i, &record, &offset);
-        if (err || record == 0) break;
+        if (err || record == 0)
+            break;
         uint32_t address = offset + record->ihr_address;
         uint32_t length = record->ihr_length;
         if ((length % 4) != 0) {
@@ -604,9 +625,11 @@ void MainWindow::programNios(void) {
     auto response = result.get();
     if (!response) {
         QMessageBox::warning(this, "Program NIOS", "Service didn't respond");
-    } else if (!response->succeeded) {
+    }
+    else if (!response->succeeded) {
         QMessageBox::warning(this, "Program NIOS", "An error occured while programming memory");
-    } else {
+    }
+    else {
         QMessageBox::information(this, "Program NIOS", "Finished");
     }
 }
@@ -639,9 +662,11 @@ void MainWindow::programFpga(void) {
     auto response = result.get();
     if (!response) {
         QMessageBox::warning(this, "Program FPGA", "Service didn't respond");
-    } else if (!response->succeeded) {
+    }
+    else if (!response->succeeded) {
         QMessageBox::warning(this, "Program FPGA", "An error occured while programming bitstream");
-    } else {
+    }
+    else {
         QMessageBox::information(this, "Program FPGA", "Finished");
     }
 }
