@@ -5,6 +5,7 @@
 # - Disable screen lock
 # - Install AX200 driver
 # - Enable spidev0.*, spidev1.*
+# - Give GPIO permission to current user
 
 # Exit on error
 set -e
