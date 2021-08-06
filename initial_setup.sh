@@ -5,7 +5,7 @@
 # - Disable screen lock
 # - Install AX200 driver
 # - Enable spidev0.*, spidev1.*
-# - Give GPIO permission to current user
+# - Associate current user with gpio and tty group to be able to access hardware
 
 # Exit on error
 set -e
@@ -45,10 +45,16 @@ sudo sed -i 's/fbcon=map:0/fbcon=map:1 pci=noaer/g' /boot/extlinux/extlinux.conf
 sudo /opt/nvidia/jetson-io/config-by-function.py -o dtb 1="spi1 spi2"
 echo "spidev" | sudo tee -a /etc/modules
 
-# Set permission to current user to manipulate GPIOs
+# Set permission to current user to manipulate hardware
 sudo cp -f 99-gpio.rules /etc/udev/rules.d/
 sudo groupadd -f -r gpio
 sudo usermod -a -G gpio $(whoami)
+sudo usermod -a -G tty $(whoami)
+sudo usermod -a -G dialout $(whoami)
+sudo systemctl stop nvgetty
+sudo systemctl disable nvgetty
+sudo chmod 660 /dev/ttyTHS1
+sudo chmod 660 /dev/ttyTHS2
 
 # Request reboot to user
 echo "
