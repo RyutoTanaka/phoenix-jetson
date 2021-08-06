@@ -44,6 +44,11 @@ sudo sed -i 's/fbcon=map:0/fbcon=map:1 pci=noaer/g' /boot/extlinux/extlinux.conf
 sudo /opt/nvidia/jetson-io/config-by-function.py -o dtb 1="spi1 spi2"
 echo "spidev" | sudo tee -a /etc/modules
 
+# Set permission to current user to manipulate GPIOs
+sudo cp -f 99-gpio.rules /etc/udev/rules.d/
+sudo groupadd -f -r gpio
+sudo usermod -a -G gpio $(whoami)
+
 # Request reboot to user
 echo "
 Please reboot"
