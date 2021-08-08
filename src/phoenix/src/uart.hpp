@@ -1,56 +1,96 @@
 #pragma once
 
 #include <string>
-#include <stdint.h>
+#include <cstdint>
 #include <mutex>
 #include <termios.h>
 
-class Uart
-{
+class Uart {
 public:
     Uart() {}
 
-    ~Uart()
-    {
-        Close();
+    ~Uart() {
+        closePort();
     }
 
-    // TTYデバイスを開く
-    // 初期設定はパリティビット無し、ストップビット1、ボーレートはデフォルト値
-    bool Open(const std::string &device_name);
+    Uart(const Uart&) = delete;
 
-    bool IsOpened(void) const
-    {
-        return (_Fd != -1);
+    /**
+     * @brief シリアルポートを開く
+     * 初期設定はパリティビット無し、ストップビット1、ボーレートはデフォルト値である。
+     * @param device_path デバイスパス
+     * @return trueならシリアルポートは開いた。falseなら開けなかった。
+     */
+    bool openPort(const std::string &device_path);
+
+    /**
+     * @brief シリアルポートが開けたか取得する
+     * @return trueならシリアルポートは開いている。falseなら開いていない。
+     */
+    bool isOpened(void) const {
+        return (_fd != INVALID_FD);
     }
 
-    void Close();
+    /**
+     * @brief シリアルポートを閉じる
+     */
+    void closePort();
 
-    // ボーレートを設定する
-    // B9600, B19200, B38400, etc. といったマクロで定義されている値を指定する
-    bool SetBaudrate(speed_t baudrate);
+    /**
+     * @brief ボーレートを設定する
+     * @param baudrate ボーレート。B9600, B19200, B38400, etc. といったマクロで定義されている値を指定する。
+     * @return trueなら設定に成功した。falseなら失敗した。
+     */
+    bool setBaudrate(speed_t baudrate);
 
-    // パリティビットを設定する
-    bool SetParityBitEnabled(bool enable, bool odd);
+    /**
+     * @brief パリティビットを設定する
+     * @param enable trueならパリティビットを有効化する。パリティの極性はodd引数で指定する。
+     * @param odd trueなら奇数パリティ、falseなら偶数パリティを使用する。
+     * @return trueなら設定に成功した。falseなら失敗した。
+     */
+    bool setParityBitEnabled(bool enable, bool odd);
 
-    // ストップビットを設定する
-    bool SetLongStopBitEnabled(bool enable);
+    /**
+     * @brief ストップビットの長さを設定する
+     * @param enable trueならストップビットを2ビットにする。falseなら1ビットにする。
+     * @return trueなら設定に成功した。falseなら失敗した。
+     */
+    bool setLongStopBitEnabled(bool enable);
+    
+    /**
+     * @brief ブレーク信号を無視するか設定する
+     * @param enable trueならブレーク信号を無視する。falseならヌル文字に変換される。
+     * @return trueなら設定に成功した。falseなら失敗した。
+     */
+    bool setIgnoreBreakEnabled(bool enable);
 
-    // データを送信する
-    // data           : 送信するデータが格納されたバッファへのポインタ
-    // length         : 送信するデータのバイト数
-    // written_length : 実際に送信されたバイト数
-    bool Write(const void *data, size_t length, size_t *written_length = nullptr);
+    /**
+     * @brief データを送信する
+     * @param length 送信するデータのバイト数
+     * @param data 送信するデータが格納されたバッファへのポインタ
+     * @param written_length 実際に送信されたバイト数
+     * @return trueなら送信に成功した。falseなら失敗した。
+     */
+    bool writeData(std::size_t length, const void *data, std::size_t *written_length = nullptr);
 
     // データを受信する
     // data        : 受信したデータを格納するバッファへのポインタ
     // length      : 受信するデータのバイト数
     // read_length : 実際に受信したバイト数
-    bool Read(void *data, size_t length, size_t *read_length = nullptr);
+
+    /**
+     * @brief データを受信する
+     * @param length 受信するデータのバイト数
+     * @param data 受信したデータを格納するバッファへのポインタ
+     * @param read_length 実際に受信したバイト数
+     * @return trueなら受信に成功した。falseなら失敗した。
+     */
+    bool readData(std::size_t length, void *data, std::size_t *read_length = nullptr);
 
 private:
-    Uart(const Uart &);
+    std::mutex _mutex;
+    int _fd = -1;
 
-    std::mutex _Mutex;
-    int _Fd = -1;
+    static constexpr int INVALID_FD = -1;
 };

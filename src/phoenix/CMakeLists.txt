@@ -32,15 +32,16 @@ ament_auto_add_executable(adc3 ${adc3_SOURCES})
 
 # stream
 set(stream_SOURCES
-  src/stream_main.cpp
+  src/stream_node.cpp
   src/uart.cpp
   src/avalon_st.cpp
 )
 ament_auto_add_executable(stream ${stream_SOURCES})
+target_compile_definitions(stream PUBLIC PHOENIX_BUILD_STANDALONE)
 
 # stream (library)
 #ament_auto_add_library(stream SHARED ${stream_SOURCES})
-#target_compile_definitions(stream PUBLIC PHOENIX_BUILD_AS_LIBRARY)
+#target_compile_definitions(stream PUBLIC PHOENIX_BUILD_LIBRARY)
 #rclcpp_components_register_nodes(stream "phoenix::StreamPublisherNode")
 
 # command

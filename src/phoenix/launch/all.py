@@ -8,20 +8,20 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package = 'phoenix',
-            node_namespace = hostname,
-            node_executable = 'stream',
-            node_name = 'phoenix_stream'
+            namespace = hostname,
+            executable = 'stream',
+            name = 'phoenix_stream'
         ),
         Node(
             package = 'phoenix',
-            node_namespace = hostname,
-            node_executable = 'adc3',
-            node_name = 'phoenix_battery'
+            namespace = hostname,
+            executable = 'adc3',
+            name = 'phoenix_battery'
         ),
         Node(
             package = 'phoenix',
-            node_namespace = hostname,
-            node_executable = 'command',
-            node_name = 'phoenix_command'
+            namespace = hostname,
+            executable = 'command',
+            name = 'phoenix_command'
         )
     ])
