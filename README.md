@@ -13,7 +13,7 @@
 1. Jetson NanoのSDカードにイメージを書き込み初回起動を行う。
 1. このリポジトリをクローンする。  
   `cd ~`  
-  `git clone https://github.com/Nkyoku/phoenix-jetson.git`
+  `git clone --recursive https://github.com/Nkyoku/phoenix-jetson.git`
 1. Jetson Nanoの初期設定を行って再起動する。  
   `cd ~/phoenix-jetson`  
   `./initial_setup.sh`  
