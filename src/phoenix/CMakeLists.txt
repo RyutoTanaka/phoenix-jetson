@@ -20,7 +20,7 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
 # Add include path
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/../../phoenix-firmware/FPGA/App/software/controller/include)
 
 # adc3
 set(adc3_SOURCES
