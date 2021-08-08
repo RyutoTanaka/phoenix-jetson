@@ -9,8 +9,8 @@
                 "${workspaceFolder}/build/phoenix_gui/gui_autogen/include_Release"
             ],
             "defines": [],
-            "cStandard": "c99",
-            "cppStandard": "c++17",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
             "intelliSenseMode": "msvc-x64"
         },
         {
@@ -26,7 +26,7 @@
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "gnu99",
-            "cppStandard": "gnu++17",
+            "cppStandard": "gnu++14",
             "intelliSenseMode": "gcc-arm64"
         }
         

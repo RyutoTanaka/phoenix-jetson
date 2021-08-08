@@ -42,6 +42,8 @@
             "args": [
                 "build",
                 "--merge-install",
+                "--event-handlers",
+                "console_cohesion+",
                 "--packages-select",
                 "phoenix_gui"
             ],

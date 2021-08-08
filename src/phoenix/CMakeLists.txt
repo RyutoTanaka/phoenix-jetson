@@ -6,9 +6,9 @@ if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++17
+# Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD 14)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -16,36 +16,43 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Find dependencies
-find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(phoenix_msgs REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
 
 # Add include path
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # adc3
-add_executable(adc3 src/adc3_main.cpp src/i2c.cpp src/ads1015.cpp)
-ament_target_dependencies(adc3 rclcpp std_msgs sensor_msgs)
-install(TARGETS adc3 DESTINATION lib/${PROJECT_NAME})
+set(adc3_SOURCES
+  src/adc3_main.cpp
+  src/i2c.cpp
+  src/ads1015.cpp
+)
+ament_auto_add_executable(adc3 ${adc3_SOURCES})
 
-# stream (standalone)
-add_executable(stream src/stream_main.cpp src/uart.cpp src/avalon_st.cpp)
-ament_target_dependencies(stream rclcpp sensor_msgs phoenix_msgs)
-install(TARGETS stream DESTINATION lib/${PROJECT_NAME})
+# stream
+set(stream_SOURCES
+  src/stream_main.cpp
+  src/uart.cpp
+  src/avalon_st.cpp
+)
+ament_auto_add_executable(stream ${stream_SOURCES})
 
 # stream (library)
-#add_library(stream SHARED src/stream_main.cpp src/uart.cpp src/avalon_st.cpp)
+#ament_auto_add_library(stream SHARED ${stream_SOURCES})
 #target_compile_definitions(stream PUBLIC PHOENIX_BUILD_AS_LIBRARY)
-#ament_target_dependencies(stream rclcpp rclcpp_components sensor_msgs phoenix_msgs)
 #rclcpp_components_register_nodes(stream "phoenix::StreamPublisherNode")
 
-# command (standalone)
-add_executable(command src/command_main.cpp src/gpio.cpp src/spi.cpp src/avalon_st.cpp src/avalon_mm.cpp src/epcq.cpp)
-ament_target_dependencies(command rclcpp std_msgs phoenix_msgs)
-install(TARGETS command DESTINATION lib/${PROJECT_NAME})
+# command
+set(command_SOURCES
+  src/command_main.cpp
+  src/gpio.cpp
+  src/spi.cpp
+  src/avalon_st.cpp
+  src/avalon_mm.cpp
+  src/epcq.cpp
+)
+ament_auto_add_executable(command ${command_SOURCES})
 
 # Launch files
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
@@ -55,4 +62,4 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_package()
+ament_auto_package()
