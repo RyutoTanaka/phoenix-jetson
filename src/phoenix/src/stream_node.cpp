@@ -6,15 +6,16 @@ using namespace std::chrono_literals;
 
 namespace phoenix {
 
-const std::string StreamPublisherNode::DEVICE_PATH_PARAM_NAME = "device_path";
+const std::string StreamPublisherNode::PARAM_NAME_DEVICE_PATH = "device_path";
 
-const std::string StreamPublisherNode::DEFAULT_DEVICE_PATH = "/dev/ttyTHS1";
+/// UARTのデバイスパスの初期値
+static const std::string DEFAULT_DEVICE_PATH = "/dev/ttyTHS1";
 
 StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : Node("phoenix_stream"), _uart(new Uart) {
     (void)options;
 
     // パラメータを宣言し値を取得する
-    auto device_path = declare_parameter<std::string>(DEVICE_PATH_PARAM_NAME, DEFAULT_DEVICE_PATH);
+    auto device_path = declare_parameter<std::string>(PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
 
     // UARTデバイスを開いて設定する
     if (!_uart->openDevice(device_path)) {

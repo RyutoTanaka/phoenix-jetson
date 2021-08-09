@@ -22,13 +22,14 @@ ament_auto_find_build_dependencies()
 # Add include path
 include_directories(${PROJECT_SOURCE_DIR}/../../phoenix-firmware/FPGA/App/software/controller/include)
 
-# adc3
-set(adc3_SOURCES
-  src/adc3_main.cpp
+# battery
+set(battery_SOURCES
+  src/battery_node.cpp
   src/i2c.cpp
   src/ads1015.cpp
 )
-ament_auto_add_executable(adc3 ${adc3_SOURCES})
+ament_auto_add_executable(battery ${battery_SOURCES})
+target_compile_definitions(battery PUBLIC PHOENIX_BUILD_STANDALONE)
 
 # stream
 set(stream_SOURCES
@@ -46,7 +47,7 @@ target_compile_definitions(stream PUBLIC PHOENIX_BUILD_STANDALONE)
 
 # command
 set(command_SOURCES
-  src/command_main.cpp
+  src/command_node.cpp
   src/gpio.cpp
   src/spi.cpp
   src/avalon_st.cpp
@@ -54,6 +55,7 @@ set(command_SOURCES
   src/epcq.cpp
 )
 ament_auto_add_executable(command ${command_SOURCES})
+target_compile_definitions(command PUBLIC PHOENIX_BUILD_STANDALONE)
 
 # Launch files
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})

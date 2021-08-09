@@ -30,7 +30,7 @@ public:
     virtual ~StreamPublisherNode();
 
     /// UARTのデバイスパスを指定するパラメータ名
-    static const std::string DEVICE_PATH_PARAM_NAME;
+    static const std::string PARAM_NAME_DEVICE_PATH;
 
 private:
     /**
@@ -119,9 +119,6 @@ private:
 
     /// UARTのボーレート
     static constexpr int BAUDRATE = B4000000;
-
-    /// UARTのデバイスパスの初期値
-    static const std::string DEFAULT_DEVICE_PATH;
 };
 
 } // namespace phoenix
