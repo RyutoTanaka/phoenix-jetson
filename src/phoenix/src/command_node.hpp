@@ -9,7 +9,7 @@
 #include <phoenix_msgs/srv/set_speed.hpp>
 #include <phoenix_msgs/srv/program_nios.hpp>
 #include <phoenix_msgs/srv/program_fpga.hpp>
-#include "../include/phoenix/shared_memory.hpp"
+#include "../../phoenix-firmware/FPGA/App/software/controller/include/shared_memory.hpp"
 
 namespace phoenix {
 
