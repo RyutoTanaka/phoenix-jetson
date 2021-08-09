@@ -2,8 +2,8 @@
 
 #include "avalon_st.hpp"
 #include "uart.hpp"
-#include "../../phoenix-firmware/FPGA/App/software/controller/include/status_flags.hpp"
-#include "../../phoenix-firmware/FPGA/App/software/controller/include/stream_data.hpp"
+#include <status_flags.hpp>
+#include <stream_data.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>

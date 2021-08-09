@@ -2,14 +2,14 @@
 
 #include "spi.hpp"
 #include "avalon_mm.hpp"
-#include <mutex>
+#include <shared_memory.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/qos.hpp>
 #include <phoenix_msgs/srv/clear_error.hpp>
 #include <phoenix_msgs/srv/set_speed.hpp>
 #include <phoenix_msgs/srv/program_nios.hpp>
 #include <phoenix_msgs/srv/program_fpga.hpp>
-#include "../../phoenix-firmware/FPGA/App/software/controller/include/shared_memory.hpp"
+#include <mutex>
 
 namespace phoenix {
 

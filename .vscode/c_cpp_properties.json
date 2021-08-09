@@ -5,6 +5,7 @@
             "includePath": [
                 "${COLCON_PREFIX_PATH}/include",
                 "${workspaceFolder}/install/include",
+                "${workspaceFolder}/phoenix-firmware/FPGA/App/software/controller/include",
                 "${QT5_DIR}/include",
                 "${workspaceFolder}/build/phoenix_gui/gui_autogen/include_Release"
             ],
@@ -17,6 +18,7 @@
             "name": "Linux GCC",
             "includePath": [
                 "${workspaceFolder}/install/include",
+                "${workspaceFolder}/phoenix-firmware/FPGA/App/software/controller/include",
                 "/opt/ros/foxy/include",
                 "/usr/local/cuda/include",
                 "/usr/include/opencv4",
