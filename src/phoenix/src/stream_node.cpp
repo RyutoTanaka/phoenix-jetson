@@ -17,7 +17,7 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
     auto device_path = declare_parameter<std::string>(DEVICE_PATH_PARAM_NAME, DEFAULT_DEVICE_PATH);
 
     // UARTデバイスを開いて設定する
-    if (!_uart->openPort(device_path)) {
+    if (!_uart->openDevice(device_path)) {
         RCUTILS_LOG_FATAL("Cannot open '%s'.", device_path.c_str());
         throw;
     }
@@ -77,7 +77,7 @@ void StreamPublisherNode::receiveThread(void) {
         }
 
         // バイトストリームをパースする
-        converter.Parse(buffer.data(), read_length, [&](std::uint8_t data, int channel, bool sof, bool eof) {
+        converter.parse(buffer.data(), read_length, [&](std::uint8_t data, int channel, bool sof, bool eof) {
             if ((channel_number != channel) || sof) {
                 if (!payload.empty() && !payload_overrun) {
                     processPacket(payload, channel_number);

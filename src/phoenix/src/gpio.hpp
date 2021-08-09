@@ -5,7 +5,8 @@
 class Gpio {
 public:
     /// GPIOの各ポートのオフセット
-    enum Port {
+    enum Port
+    {
         PortA = 0x0,
         PortB = 0x8,
         PortC = 0x10,
@@ -41,7 +42,8 @@ public:
     };
 
     /// Jetson Nanoモジュールから出ているピン名からピン番号への対応
-    enum JetsonNanoModulePin {
+    enum JetsonNanoModulePin
+    {
         /// GPIO3_PCC.04 : GPIO00/USB_VBUS
         JetsonNanoModulePinGpio00 = PortCC + 4,
 
@@ -167,51 +169,65 @@ public:
     };
 
     /**
-     * コンストラクタ
+     * @brief コンストラクタ
      * @param pin_number GPIOのピン番号
      */
     Gpio(int pin_number);
 
     ~Gpio();
 
+    Gpio(const Gpio&) = delete;
+
     /**
-     * GPIO操作が可能か取得する
+     * @brief GPIO操作が可能か取得する
+     * @return trueなら操作が可能である。falseなら操作は不可能である。
      */
-    bool IsOpened(void) const {
-        return _IsOpened;
+    bool isOpened(void) const {
+        return _is_opened;
     }
 
     /**
-     * GPIOの出力ドライバを有効にする
+     * @brief GPIOの出力ドライバを有効にする
      * @param enabled trueなら出力、falseなら入力になる
      */
-    void SetOutputEnabled(bool enabled);
+    void setOutputEnabled(bool enabled);
 
     /**
-     * 出力値を設定する
+     * @brief 出力値を設定する
      * @param value trueならH、falseならLを出力する
      */
-    void SetOutputValue(bool value);
+    void setOutputValue(bool value);
 
     /**
-     * 入力値を取得する
+     * @brief 入力値を取得する
      * @return trueならH、falseならLが入力されている
      */
-    bool GetInputValue(void);
+    bool getInputValue(void);
 
-private:    
-    std::string GetBasePath(void){
-        return std::string("/sys/class/gpio/gpio") + std::to_string(_PinNumber);
+private:
+    /**
+     * @brief GPIOのデバイスパスのベースを取得する
+     * @return デバイスパスのベース
+     */
+    std::string getBasePath(void) {
+        return std::string("/sys/class/gpio/gpio") + std::to_string(_pin_number);
     }
 
-    static const char ExportPath[];
-    static const char UnexportPath[];
+    /// GPIOを有効化するためのパス
+    static const char EXPORT_PATH[];
 
-    static bool _PermissionChecked;
-    static bool _PermissionOk;
-    
-    bool _IsOpened;
-    int _PinNumber;
-    std::string _GpioValuePath;
-    std::string _GpioDirectionPath;
+    /// GPIOを無効化するためのパス
+    static const char UNEXPORT_PATH[];
+
+    /// falseならアクセス権限をチェックする
+    /// アクセス権限のチェックを行ったらtrueになる
+    static bool _permission_checked;
+
+    /// アクセス権限があるならtrueになる
+    static bool _permission_ok;
+
+    bool _is_opened;
+    int _pin_number;
+    std::string _gpio_value_path;
+    std::string _gpio_direction_path;
 };

@@ -10,31 +10,31 @@ public:
     Uart() {}
 
     ~Uart() {
-        closePort();
+        closeDevice();
     }
 
     Uart(const Uart&) = delete;
 
     /**
-     * @brief シリアルポートを開く
+     * @brief デバイスを開く
      * 初期設定はパリティビット無し、ストップビット1、ボーレートはデフォルト値である。
      * @param device_path デバイスパス
-     * @return trueならシリアルポートは開いた。falseなら開けなかった。
+     * @return trueならデバイスは開いた。falseなら開けなかった。
      */
-    bool openPort(const std::string &device_path);
+    bool openDevice(const std::string &device_path);
 
     /**
-     * @brief シリアルポートが開けたか取得する
-     * @return trueならシリアルポートは開いている。falseなら開いていない。
+     * @brief デバイスが開けたか取得する
+     * @return trueならデバイスは開いている。falseなら開いていない。
      */
     bool isOpened(void) const {
         return (_fd != INVALID_FD);
     }
 
     /**
-     * @brief シリアルポートを閉じる
+     * @brief デバイスを閉じる
      */
-    void closePort();
+    void closeDevice();
 
     /**
      * @brief ボーレートを設定する
@@ -72,7 +72,7 @@ public:
      * @param written_length 実際に送信されたバイト数
      * @return trueなら送信に成功した。falseなら失敗した。
      */
-    bool writeData(std::size_t length, const void *data, std::size_t *written_length = nullptr);
+    bool writeData(size_t length, const void *data, size_t *written_length = nullptr);
 
     // データを受信する
     // data        : 受信したデータを格納するバッファへのポインタ
@@ -86,7 +86,7 @@ public:
      * @param read_length 実際に受信したバイト数
      * @return trueなら受信に成功した。falseなら失敗した。
      */
-    bool readData(std::size_t length, void *data, std::size_t *read_length = nullptr);
+    bool readData(size_t length, void *data, size_t *read_length = nullptr);
 
 private:
     std::mutex _mutex;

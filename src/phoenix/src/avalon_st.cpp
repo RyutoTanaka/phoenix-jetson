@@ -1,6 +1,6 @@
 #include "avalon_st.hpp"
 
-void AvalonStPacketsToBytesConverter::Convert(const std::vector<uint8_t> &payload, int channel, std::vector<uint8_t> &output) {
+void AvalonStPacketsToBytesConverter::convert(const std::vector<uint8_t> &payload, int channel, std::vector<uint8_t> &output) {
     if (payload.empty() == true) {
         // ペイロード無しは許されない
         return;
@@ -17,7 +17,8 @@ void AvalonStPacketsToBytesConverter::Convert(const std::vector<uint8_t> &payloa
         output.push_back(0x7C);
         if ((channel < 0x7A) || (0x7D < channel)) {
             output.push_back(static_cast<uint8_t>(channel));
-        } else {
+        }
+        else {
             output.push_back(0x7D);
             output.push_back(static_cast<uint8_t>(channel ^ 0x20));
         }
@@ -33,7 +34,8 @@ void AvalonStPacketsToBytesConverter::Convert(const std::vector<uint8_t> &payloa
         int data = payload[index];
         if ((data < 0x7A) || (0x7D < data)) {
             output.push_back(static_cast<uint8_t>(data));
-        } else {
+        }
+        else {
             output.push_back(0x7D);
             output.push_back(static_cast<uint8_t>(data ^ 0x20));
         }

@@ -115,7 +115,7 @@ private:
     static constexpr int QOS_DEPTH = 10;
 
     /// キューの長さ
-    static constexpr std::size_t QUEUE_LENGTH = 10;
+    static constexpr size_t QUEUE_LENGTH = 10;
 
     /// UARTのボーレート
     static constexpr int BAUDRATE = B4000000;

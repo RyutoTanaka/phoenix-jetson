@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-bool Uart::openPort(const std::string &device_path) {
+bool Uart::openDevice(const std::string &device_path) {
     std::lock_guard<std::mutex> lock(_mutex);
     if (_fd != INVALID_FD) {
         close(_fd);
@@ -29,11 +29,11 @@ bool Uart::openPort(const std::string &device_path) {
         }
         return true;
     } while (false);
-    closePort();
+    closeDevice();
     return false;
 }
 
-void Uart::closePort() {
+void Uart::closeDevice() {
     std::lock_guard<std::mutex> lock(_mutex);
     if (_fd != -1) {
         close(_fd);
@@ -128,7 +128,7 @@ bool Uart::setIgnoreBreakEnabled(bool enable) {
     return true;
 }
 
-bool Uart::writeData(std::size_t length, const void *data, std::size_t *written_length) {
+bool Uart::writeData(size_t length, const void *data, size_t *written_length) {
     ssize_t result = write(_fd, data, length);
     if (result < 0) {
         return false;
@@ -139,7 +139,7 @@ bool Uart::writeData(std::size_t length, const void *data, std::size_t *written_
     return true;
 }
 
-bool Uart::readData(std::size_t length, void *data, std::size_t *read_length) {
+bool Uart::readData(size_t length, void *data, size_t *read_length) {
     ssize_t result = read(_fd, data, length);
     if (result < 0) {
         return false;

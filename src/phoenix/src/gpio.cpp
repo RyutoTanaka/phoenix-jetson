@@ -7,107 +7,92 @@
 
 #include <stdio.h>
 
-Gpio::Gpio(int pin_number) : _IsOpened(false), _PinNumber(pin_number) {
+Gpio::Gpio(int pin_number) : _is_opened(false), _pin_number(pin_number) {
     if ((pin_number < 0) || (255 < pin_number)) {
         return;
     }
 
-    _GpioValuePath = "/sys/class/gpio/gpio" + std::to_string(pin_number) + "/value";
-    _GpioDirectionPath = "/sys/class/gpio/gpio" + std::to_string(pin_number) + "/direction";
+    _gpio_value_path = "/sys/class/gpio/gpio" + std::to_string(pin_number) + "/value";
+    _gpio_direction_path = "/sys/class/gpio/gpio" + std::to_string(pin_number) + "/direction";
 
-    if (_PermissionChecked == false) {
+    if (_permission_checked == false) {
         // アクセス権限をチェックする
         printf("Permission Check\n");
-        _PermissionChecked = true;
-        if ((access(ExportPath, W_OK) == 0) && (access(UnexportPath, W_OK) == 0)) {
+        _permission_checked = true;
+        if ((access(EXPORT_PATH, W_OK) == 0) && (access(UNEXPORT_PATH, W_OK) == 0)) {
             printf("Permission Ok\n");
-            _PermissionOk = true;
+            _permission_ok = true;
         }
     }
 
-    if (_PermissionOk == true) {
+    if (_permission_ok == true) {
         // GPIOを有効化する
-        printf("Enable GPIO %d\n", _PinNumber);
-        std::ofstream export_stream(ExportPath);
-        export_stream << std::to_string(_PinNumber);
+        printf("Enable GPIO %d\n", _pin_number);
+        std::ofstream export_stream(EXPORT_PATH);
+        export_stream << std::to_string(_pin_number);
         export_stream.close();
 
         // GPIOにアクセス可能になったか確認する
-        printf("Check GPIO %d\n", _PinNumber);
+        printf("Check GPIO %d\n", _pin_number);
         int timeout = 100;
-        while (access(_GpioValuePath.c_str(), R_OK | W_OK) != 0) {
+        while (access(_gpio_value_path.c_str(), R_OK | W_OK) != 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             if (--timeout < 0) {
-                printf("Timeout '%s'\n", _GpioValuePath.c_str());
+                printf("Timeout '%s'\n", _gpio_value_path.c_str());
                 return;
             }
         }
-        while (access(_GpioDirectionPath.c_str(), W_OK) != 0) {
+        while (access(_gpio_direction_path.c_str(), W_OK) != 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             if (--timeout < 0) {
-                printf("Timeout '%s'\n", _GpioDirectionPath.c_str());
+                printf("Timeout '%s'\n", _gpio_direction_path.c_str());
                 return;
             }
         }
 
-        _IsOpened = true;
+        _is_opened = true;
     }
 }
 
 Gpio::~Gpio() {
-    if (_IsOpened == false) {
+    if (_is_opened == false) {
         return;
     }
 
     // GPIOを無効化する
-    printf("Disable GPIO %d\n", _PinNumber);
-    std::ofstream unexport_stream(UnexportPath);
-    unexport_stream << std::to_string(_PinNumber);
+    printf("Disable GPIO %d\n", _pin_number);
+    std::ofstream unexport_stream(UNEXPORT_PATH);
+    unexport_stream << std::to_string(_pin_number);
     unexport_stream.close();
 }
 
-void Gpio::SetOutputEnabled(bool enabled) {
-    if (_IsOpened == false) {
+void Gpio::setOutputEnabled(bool enabled) {
+    if (_is_opened == false) {
         return;
     }
-    std::ofstream direction_stream(_GpioDirectionPath);
+    std::ofstream direction_stream(_gpio_direction_path);
     direction_stream << (enabled ? "out" : "in");
 }
 
-void Gpio::SetOutputValue(bool value) {
-    if (_IsOpened == false) {
+void Gpio::setOutputValue(bool value) {
+    if (_is_opened == false) {
         return;
     }
-    std::ofstream value_stream(_GpioValuePath);
+    std::ofstream value_stream(_gpio_value_path);
     value_stream << (value ? "1" : "0");
 }
 
-bool Gpio::GetInputValue(void) {
-    if (_IsOpened == false) {
+bool Gpio::getInputValue(void) {
+    if (_is_opened == false) {
         return false;
     }
-    std::ifstream value_stream(_GpioValuePath);
+    std::ifstream value_stream(_gpio_value_path);
     int result;
     value_stream >> result;
     return result != 0;
 }
 
-const char Gpio::ExportPath[] = "/sys/class/gpio/export";
-const char Gpio::UnexportPath[] = "/sys/class/gpio/unexport";
-bool Gpio::_PermissionChecked = false;
-bool Gpio::_PermissionOk = false;
-
-/*int main(void) {
-    printf("Initialize GPIO");
-    Gpio fpga_mode(Gpio::JetsonNanoModulePinGpio12);
-    fpga_mode.SetOutputEnabled(true);
-
-    for(int i = 0; i < 10; i++){
-        fpga_mode.SetOutputValue(false);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        fpga_mode.SetOutputValue(true);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    
-    return 0;
-}*/
+const char Gpio::EXPORT_PATH[] = "/sys/class/gpio/export";
+const char Gpio::UNEXPORT_PATH[] = "/sys/class/gpio/unexport";
+bool Gpio::_permission_checked = false;
+bool Gpio::_permission_ok = false;
