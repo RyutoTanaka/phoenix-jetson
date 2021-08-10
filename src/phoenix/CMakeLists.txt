@@ -34,6 +34,7 @@ target_compile_definitions(battery PUBLIC PHOENIX_BUILD_STANDALONE)
 # stream
 set(stream_SOURCES
   src/stream_node.cpp
+  src/diagnostics.cpp
   src/uart.cpp
   src/avalon_st.cpp
 )
@@ -48,6 +49,7 @@ target_compile_definitions(stream PUBLIC PHOENIX_BUILD_STANDALONE)
 # command
 set(command_SOURCES
   src/command_node.cpp
+  src/diagnostics.cpp
   src/gpio.cpp
   src/spi.cpp
   src/avalon_st.cpp

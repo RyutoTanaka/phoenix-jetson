@@ -2,9 +2,7 @@
 
 #include "i2c.hpp"
 #include "ads1015.hpp"
-#include "../include/phoenix.hpp"
 #include <rclcpp/rclcpp.hpp>
-#include <rclcpp/qos.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <sensor_msgs/msg/temperature.hpp>

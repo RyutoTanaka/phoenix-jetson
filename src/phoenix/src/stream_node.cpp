@@ -1,5 +1,6 @@
 #include "stream_node.hpp"
 #include "timestamp.hpp"
+#include "diagnostics.hpp"
 #include "../include/phoenix.hpp"
 #include <rcutils/logging.h>
 #include <chrono>
@@ -14,7 +15,8 @@ static const std::string DEFAULT_DEVICE_PATH = "/dev/ttyTHS1";
 /// IMUのframe_id
 static const std::string IMU_FRAME_ID = "";
 
-StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : Node(stream::NODE_NAME), _uart(new Uart) {
+StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : Node(stream::NODE_NAME), _uart(new Uart), _diag_updater(this) {
+    using namespace std::placeholders;
     (void)options;
 
     // パラメータを宣言し値を取得する
@@ -34,11 +36,30 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
         throw;
     }
 
+    // ステータスを初期化する
+    _status.error_flags = 0xFFFFFFFFUL;
+    _status.fault_flags = 0xFFFFFFFFUL;
+
+    // トピックを購読する
+    _injected_error_flags_subscription =
+        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+            _injected_error_flags = msg->data;
+        });
+    _injected_fault_flags_subscription =
+        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+            _injected_fault_flags = msg->data;
+        });
+
     // Publisherを作成する
-    _status_publisher = create_publisher<phoenix_msgs::msg::StreamDataStatus>(TOPIC_NAME_STATUS, QOS_DEPTH);
     _adc2_publisher = create_publisher<phoenix_msgs::msg::StreamDataAdc2>(TOPIC_NAME_ADC2, QOS_DEPTH);
     _motion_publisher = create_publisher<phoenix_msgs::msg::StreamDataMotion>(TOPIC_NAME_MOTION, QOS_DEPTH);
     _imu_publisher = create_publisher<sensor_msgs::msg::Imu>(TOPIC_NAME_IMU, QOS_DEPTH);
+
+    // 診断ステータスの初期化を行う
+    _diag_updater.setHardwareID("none");
+    _diag_updater.add(DIAGNOSTICS_NAME_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
+        createFpgaDiagnostics(_status, diag);
+    });
 
     // スレッドを起動する
     _receive_thread = new std::thread([this](void) {
@@ -156,19 +177,20 @@ void StreamPublisherNode::publishThread(void) {
         std::unique_lock<std::mutex> lock(_queue_mutex);
         _condition_variable.wait_for(lock, TIMEOUT);
         if (!_status_queue.empty()) {
-            // StreamDataStatus_tをコピーする
-            std::array<phoenix_msgs::msg::StreamDataStatus, QUEUE_LENGTH> buffer;
-            int count = 0;
+            // 最後のStreamDataStatus_tをコピーする
+            StreamDataStatus_t last_status = _status;
+            _status = _status_queue.back();
+            _status.error_flags |= _injected_error_flags;
+            _status.fault_flags |= _injected_fault_flags;
             do {
-                convertStatus(_status_queue.front(), &buffer[count]);
-                count++;
                 _status_queue.pop();
             } while (!_status_queue.empty());
 
             // StreamDataStatusを配信する
             lock.unlock();
-            for (int index = 0; index < count; index++) {
-                _status_publisher->publish(buffer[index]);
+            if ((last_status.error_flags != _status.error_flags) || (last_status.fault_flags != _status.fault_flags)) {
+                // ステータスに変更があれば診断ステータスを強制送信する
+                _diag_updater.force_update();
             }
             lock.lock();
         }
@@ -208,46 +230,6 @@ void StreamPublisherNode::publishThread(void) {
             }
             lock.lock();
         }
-    }
-}
-
-void StreamPublisherNode::convertStatus(const StreamDataStatus_t &data, phoenix_msgs::msg::StreamDataStatus *msg) {
-    uint32_t error_flags = data.error_flags;
-    uint32_t fault_flags = data.fault_flags;
-    if (error_flags != 0) {
-        msg->error_module_sleep = (error_flags & ErrorCauseModuleSleep);
-        msg->error_fpga_stop = (error_flags & ErrorCauseFpgaStop);
-        msg->error_dc48v_uv = (error_flags & ErrorCauseDc48vUnderVoltage);
-        msg->error_dc48v_ov = (error_flags & ErrorCauseDc48vOverVoltage);
-        msg->error_motor_oc[0] = (error_flags & ErrorCauseMotor1OverCurrent);
-        msg->error_motor_oc[1] = (error_flags & ErrorCauseMotor2OverCurrent);
-        msg->error_motor_oc[2] = (error_flags & ErrorCauseMotor3OverCurrent);
-        msg->error_motor_oc[3] = (error_flags & ErrorCauseMotor4OverCurrent);
-        msg->error_motor_oc[4] = (error_flags & ErrorCauseMotor5OverCurrent);
-        msg->error_motor_hall_sensor[0] = (error_flags & ErrorCauseMotor1HallSensor);
-        msg->error_motor_hall_sensor[1] = (error_flags & ErrorCauseMotor2HallSensor);
-        msg->error_motor_hall_sensor[2] = (error_flags & ErrorCauseMotor3HallSensor);
-        msg->error_motor_hall_sensor[3] = (error_flags & ErrorCauseMotor4HallSensor);
-        msg->error_motor_hall_sensor[4] = (error_flags & ErrorCauseMotor5HallSensor);
-    }
-    if (fault_flags != 0) {
-        msg->fault_adc2_timeout = (fault_flags & FaultCauseAdc2Timeout);
-        msg->fault_imu_timeout = (fault_flags & FaultCauseImuTimeout);
-        msg->fault_motor_ot[0] = (fault_flags & FaultCauseMotor1OverTemperature);
-        msg->fault_motor_ot[1] = (fault_flags & FaultCauseMotor2OverTemperature);
-        msg->fault_motor_ot[2] = (fault_flags & FaultCauseMotor3OverTemperature);
-        msg->fault_motor_ot[3] = (fault_flags & FaultCauseMotor4OverTemperature);
-        msg->fault_motor_ot[4] = (fault_flags & FaultCauseMotor5OverTemperature);
-        msg->fault_motor_oc[0] = (fault_flags & FaultCauseMotor1OverCurrent);
-        msg->fault_motor_oc[1] = (fault_flags & FaultCauseMotor2OverCurrent);
-        msg->fault_motor_oc[2] = (fault_flags & FaultCauseMotor3OverCurrent);
-        msg->fault_motor_oc[3] = (fault_flags & FaultCauseMotor4OverCurrent);
-        msg->fault_motor_oc[4] = (fault_flags & FaultCauseMotor5OverCurrent);
-        msg->fault_motor_load_switch[0] = (fault_flags & FaultCauseMotor1LoadSwitch);
-        msg->fault_motor_load_switch[1] = (fault_flags & FaultCauseMotor2LoadSwitch);
-        msg->fault_motor_load_switch[2] = (fault_flags & FaultCauseMotor3LoadSwitch);
-        msg->fault_motor_load_switch[3] = (fault_flags & FaultCauseMotor4LoadSwitch);
-        msg->fault_motor_load_switch[4] = (fault_flags & FaultCauseMotor5LoadSwitch);
     }
 }
 

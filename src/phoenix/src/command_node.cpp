@@ -3,6 +3,7 @@
 #include "avalon_st.hpp"
 #include "epcq.hpp"
 #include "../include/phoenix.hpp"
+#include "diagnostics.hpp"
 #include <chrono>
 #include <cstring>
 #include <cmath>
@@ -61,7 +62,7 @@ static constexpr uint8_t BIT_REVERSAL_TABLE[256] = {
 CommandNode::CommandNode(const rclcpp::NodeOptions &options) : Node(command::NODE_NAME) {
     using namespace std::placeholders;
     (void)options;
-    
+
     // 共有メモリーを初期化する
     memset(&_shared_memory, 0, sizeof(_shared_memory));
 
@@ -85,13 +86,19 @@ CommandNode::CommandNode(const rclcpp::NodeOptions &options) : Node(command::NOD
     _avalon_mm = std::make_shared<AvalonMm>(_spi);
 
     // トピックを購読する
-    const rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, 1));
     _velocity_subscription =
-        create_subscription<geometry_msgs::msg::Twist>(TOPIC_NAME_COMMAND_VELOCITY, qos, std::bind(&CommandNode::commandVelocityCallback, this, _1));
+        create_subscription<geometry_msgs::msg::Twist>(TOPIC_NAME_COMMAND_VELOCITY, QOS_DEPTH, std::bind(&CommandNode::commandVelocityCallback, this, _1));
+    _injected_error_flags_subscription =
+        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+            _injected_error_flags = msg->data;
+        });
+    _injected_fault_flags_subscription =
+        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+            _injected_fault_flags = msg->data;
+        });
 
     // サービスを登録する
-    _clear_error_service =
-        create_service<phoenix_msgs::srv::ClearError>(SERVICE_NAME_CLEAR_ERROR, std::bind(&CommandNode::clearErrorCallback, this, _1, _2, _3));
+    _self_test_service = create_service<diagnostic_msgs::srv::SelfTest>(SERVICE_NAME_SELF_TEST, std::bind(&CommandNode::selfTestCallback, this, _1, _2, _3));
     _program_nios_service =
         create_service<phoenix_msgs::srv::ProgramNios>(SERVICE_NAME_PROGRAM_NIOS, std::bind(&CommandNode::programNiosCallback, this, _1, _2, _3));
     _program_fpga_service =
@@ -99,6 +106,11 @@ CommandNode::CommandNode(const rclcpp::NodeOptions &options) : Node(command::NOD
 }
 
 void CommandNode::commandVelocityCallback(const std::shared_ptr<geometry_msgs::msg::Twist> msg) {
+    if ((_injected_error_flags != 0) || (_injected_fault_flags != 0)) {
+        // 故障注入されているときは無視する
+        return;
+    }
+
     // パラメータをコピーする
     _shared_memory.Parameters.FrameNumber++;
     _shared_memory.Parameters.speed_x = msg->linear.x;
@@ -116,21 +128,26 @@ void CommandNode::commandVelocityCallback(const std::shared_ptr<geometry_msgs::m
                           sizeof(SharedMemory_t::Parameters_t) + sizeof(uint32_t) * 2, &_shared_memory.HeadChecksum);
 }
 
-void CommandNode::clearErrorCallback(const std::shared_ptr<rmw_request_id_t> request_header,
-                                     const std::shared_ptr<phoenix_msgs::srv::ClearError::Request> request,
-                                     const std::shared_ptr<phoenix_msgs::srv::ClearError::Response> response) {
+void CommandNode::selfTestCallback(const std::shared_ptr<rmw_request_id_t> request_header,
+                                   const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Request> request,
+                                   const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Response> response) {
     (void)request_header;
     (void)request;
 
-    response->succeeded = false;
-    response->any_errors = false;
+    response->id = "FPGA";
+    response->passed = false;
 
-    // 現在のErrorFlagsを確認する
-    uint32_t error_flags;
+    // 現在のエラーフラグとフォルトフラグを確認する
+    uint32_t error_flags, fault_flags;
     if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory_t, ErrorFlags)), &error_flags)) {
         return;
     }
-    if (error_flags != 0) {
+    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory_t, FaultFlags)), &fault_flags)) {
+        return;
+    }
+    fault_flags |= _injected_fault_flags;
+
+    if ((fault_flags == 0) && (error_flags != 0)) {
         // 何らかのエラーが発生しているので消去を試みる
         // ErrorFlagsに0xFFFFFFFFを書き込むとエラーフラグの消去を要求できる
         if (!_avalon_mm->writeData(static_cast<uint32_t>(offsetof(SharedMemory_t, ErrorFlags)), 0xFFFFFFFFUL)) {
@@ -147,13 +164,17 @@ void CommandNode::clearErrorCallback(const std::shared_ptr<rmw_request_id_t> req
             if (error_flags != 0xFFFFFFFFUL) {
                 break;
             }
-            if (--timeout < 0) {
-                return;
-            }
-        } while (true);
-        response->any_errors = (error_flags != 0);
+        } while (0 <= --timeout);
     }
-    response->succeeded = true;
+    error_flags |= _injected_error_flags;
+
+    // 結果を返す
+    response->status.resize(1);
+    StreamDataStatus_t status;
+    status.error_flags = error_flags;
+    status.fault_flags = fault_flags;
+    createFpgaDiagnostics(status, response->status[0]);
+    response->passed = (response->status[0].level == diagnostic_msgs::msg::DiagnosticStatus::OK);
 }
 
 void CommandNode::programNiosCallback(const std::shared_ptr<rmw_request_id_t> request_header,

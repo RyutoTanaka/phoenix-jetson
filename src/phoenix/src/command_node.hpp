@@ -5,8 +5,9 @@
 #include <shared_memory.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/qos.hpp>
+#include <std_msgs/msg/u_int32.hpp>
 #include <geometry_msgs/msg/twist.hpp>
-#include <phoenix_msgs/srv/clear_error.hpp>
+#include <diagnostic_msgs/srv/self_test.hpp>
 #include <phoenix_msgs/srv/program_nios.hpp>
 #include <phoenix_msgs/srv/program_fpga.hpp>
 #include <rcl_interfaces/msg/set_parameters_result.hpp>
@@ -28,10 +29,10 @@ private:
     void commandVelocityCallback(const std::shared_ptr<geometry_msgs::msg::Twist> msg);
 
     /**
-     * @brief clear_errorサービスを処理する
+     * @brief self_testサービスを処理する
      */
-    void clearErrorCallback(const std::shared_ptr<rmw_request_id_t> request_header, const std::shared_ptr<phoenix_msgs::srv::ClearError::Request> request,
-                            const std::shared_ptr<phoenix_msgs::srv::ClearError::Response> response);
+    void selfTestCallback(const std::shared_ptr<rmw_request_id_t> request_header, const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Request> request,
+                          const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Response> response);
 
     /**
      * @brief program_niosサービスを処理する
@@ -76,11 +77,17 @@ private:
     /// Avalon-MMマスター
     std::shared_ptr<AvalonMm> _avalon_mm;
 
-    // cmd_velトピックの購読
+    // cmd_velトピックのSubscription
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr _velocity_subscription;
 
-    /// clear_errorサービス
-    rclcpp::Service<phoenix_msgs::srv::ClearError>::SharedPtr _clear_error_service;
+    // injected_error_flagsトピックのSubscription
+    rclcpp::Subscription<std_msgs::msg::UInt32>::SharedPtr _injected_error_flags_subscription;
+
+    // injected_fault_flagsトピックのSubscription
+    rclcpp::Subscription<std_msgs::msg::UInt32>::SharedPtr _injected_fault_flags_subscription;
+
+    /// self_testサービス
+    rclcpp::Service<diagnostic_msgs::srv::SelfTest>::SharedPtr _self_test_service;
 
     /// program_niosサービス
     rclcpp::Service<phoenix_msgs::srv::ProgramNios>::SharedPtr _program_nios_service;
@@ -93,6 +100,12 @@ private:
 
     /// 共有メモリー
     SharedMemory_t _shared_memory;
+
+    /// 故障注入されたエラーフラグ
+    uint32_t _injected_error_flags = 0;
+
+    /// 故障注入されたフォルトフラグ
+    uint32_t _injected_fault_flags = 0;
 
     /// SPIのビットレート[Hz]
     static constexpr unsigned int SPI_FREQUENCY = 10000000;

@@ -16,23 +16,35 @@ static constexpr char TOPIC_NAME_IMU[] = "imu";
 /// オドメトリを配信するトピック名
 static constexpr char TOPIC_NAME_ODOMETRY[] = "odom";
 
-/// エラーフラグを配信するトピック名
-static constexpr char TOPIC_NAME_STATUS[] = "status";
-
 /// ADC2の測定値を配信するトピック名
 static constexpr char TOPIC_NAME_ADC2[] = "adc2";
 
 /// モーションに関する情報を配信するトピック名
 static constexpr char TOPIC_NAME_MOTION[] = "motion";
 
-/// エラーフラグをクリアするサービス名
-static constexpr char SERVICE_NAME_CLEAR_ERROR[] = "clear_error";
+/// セルフテストを実行するサービス名
+static constexpr char SERVICE_NAME_SELF_TEST[] = "self_test";
 
 /// Nios IIのプログラムを書き換えるサービス名
 static constexpr char SERVICE_NAME_PROGRAM_NIOS[] = "program_nios";
 
 /// FPGAを書き換えるサービス名
 static constexpr char SERVICE_NAME_PROGRAM_FPGA[] = "program_fpga";
+
+/// FPGAの診断ステータスを配信するときの名前
+static constexpr char DIAGNOSTICS_NAME_FPGA[] = "FPGA";
+
+
+
+namespace internal {
+
+/// テストのためにエラーフラグに故障注入するトピック名
+static constexpr char TOPIC_NAME_INJECTED_ERROR_FLAGS[] = "injected_error_flags";
+
+/// テストのためにフォルトフラグに故障注入するトピック名
+static constexpr char TOPIC_NAME_INJECTED_FAULT_FLAGS[] = "injected_fault_flags";
+
+}
 
 
 

@@ -25,8 +25,6 @@ rosidl_generate_interfaces(
   msg/StreamDataAdc2.msg
   msg/StreamDataStatus.msg
   msg/StreamDataMotion.msg
-  srv/ClearError.srv
-  srv/SetSpeed.srv
   srv/ProgramNios.srv
   srv/ProgramFpga.srv
 )

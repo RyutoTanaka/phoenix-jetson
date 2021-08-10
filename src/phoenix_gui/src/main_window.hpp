@@ -12,7 +12,6 @@
 #include <phoenix_msgs/msg/stream_data_adc2.hpp>
 #include <phoenix_msgs/msg/stream_data_motion.hpp>
 #include <phoenix_msgs/msg/stream_data_status.hpp>
-#include <phoenix_msgs/srv/clear_error.hpp>
 #include <phoenix_msgs/srv/program_fpga.hpp>
 #include <phoenix_msgs/srv/program_nios.hpp>
 #include <rclcpp/rclcpp.hpp>

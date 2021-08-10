@@ -1,5 +1,7 @@
 #include "battery_node.hpp"
 #include "timestamp.hpp"
+#include "../include/phoenix.hpp"
+#include <rclcpp/qos.hpp>
 #include <rcutils/logging.h>
 #include <cmath>
 #include <limits>
