@@ -15,7 +15,7 @@ def generate_launch_description():
         Node(
             package = 'phoenix',
             namespace = hostname,
-            executable = 'adc3',
+            executable = 'battery',
             name = 'phoenix_battery'
         ),
         Node(

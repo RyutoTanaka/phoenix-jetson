@@ -15,8 +15,8 @@
 #include <phoenix_msgs/srv/clear_error.hpp>
 #include <phoenix_msgs/srv/program_fpga.hpp>
 #include <phoenix_msgs/srv/program_nios.hpp>
-#include <phoenix_msgs/srv/set_speed.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
@@ -49,7 +49,7 @@ private:
 
     Q_SLOT void reloadNamespaceList(void);
 
-    Q_SLOT void connectToNodes(QString namespace_name);
+    Q_SLOT void connectToNodes(const QString &namespace_name);
 
     Q_SLOT void updateTelemertyTreeItems(void);
 
@@ -135,6 +135,11 @@ private:
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image;
     } _Subscribers;
 
+    /// 作成したPublisherを保持する
+    struct Publisher_t {
+        rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr velocity;
+    } _publishers;
+
     /// 受信した最後のトピックを保持する
     struct LastMessages_t {
         std::shared_ptr<sensor_msgs::msg::BatteryState> battery;
@@ -144,8 +149,6 @@ private:
     } _LastMessages;
 
     struct Clients_t {
-        rclcpp::Client<phoenix_msgs::srv::SetSpeed>::SharedPtr set_speed;
-        std::shared_future<std::shared_ptr<phoenix_msgs::srv::SetSpeed_Response>> set_speed_future;
         rclcpp::Client<phoenix_msgs::srv::ProgramNios>::SharedPtr program_nios;
         rclcpp::Client<phoenix_msgs::srv::ProgramFpga>::SharedPtr program_fpga;
     } _Clients;

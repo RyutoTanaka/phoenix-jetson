@@ -1,13 +1,10 @@
 #include "battery_node.hpp"
+#include <rcutils/logging.h>
 #include <cmath>
 #include <limits>
 #include <thread>
-#include <rcutils/logging.h>
 
 namespace phoenix {
-
-const std::string BatteryPublisherNode::PARAM_NAME_DEVICE_PATH = "device_path";
-const std::string BatteryPublisherNode::PARAM_NAME_DEVICE_ADDRESS = "device_address";
 
 /// デバイスパスの初期値
 static const std::string DEFAULT_DEVICE_PATH = "/dev/i2c-1";
@@ -29,10 +26,10 @@ BatteryPublisherNode::BatteryPublisherNode(const rclcpp::NodeOptions &options) :
     (void)options;
 
     // パラメータを宣言し値を取得する
-    auto device_path = declare_parameter<std::string>(PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
-    auto device_address = declare_parameter<int>(PARAM_NAME_DEVICE_ADDRESS, DEFAULT_DEVICE_ADDRESS);
+    auto device_path = declare_parameter<std::string>(phoenix::battery::PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
+    auto device_address = declare_parameter<int>(phoenix::battery::PARAM_NAME_DEVICE_ADDRESS, DEFAULT_DEVICE_ADDRESS);
     if ((device_address < 0x08) || (0x78 < device_address)) {
-        RCUTILS_LOG_ERROR("Parameter '%s' is out of range.", PARAM_NAME_DEVICE_ADDRESS.c_str());
+        RCUTILS_LOG_ERROR("Parameter '%s' is out of range.", phoenix::battery::PARAM_NAME_DEVICE_ADDRESS);
         throw;
     }
 
@@ -52,7 +49,7 @@ BatteryPublisherNode::BatteryPublisherNode(const rclcpp::NodeOptions &options) :
 
     // publisherを作成する
     rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, 1));
-    _battery_publisher = create_publisher<sensor_msgs::msg::BatteryState>("battery", qos);
+    _battery_publisher = create_publisher<sensor_msgs::msg::BatteryState>(phoenix::TOPIC_NAME_BATTERY, qos);
     _timer = create_wall_timer(10ms, std::bind(&BatteryPublisherNode::timerCallback, this));
 
     // _battery_stateの不明な項目をNaNで初期化する

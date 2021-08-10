@@ -5,10 +5,11 @@
 #include <shared_memory.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/qos.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 #include <phoenix_msgs/srv/clear_error.hpp>
-#include <phoenix_msgs/srv/set_speed.hpp>
 #include <phoenix_msgs/srv/program_nios.hpp>
 #include <phoenix_msgs/srv/program_fpga.hpp>
+#include <rcl_interfaces/msg/set_parameters_result.hpp>
 #include <mutex>
 
 namespace phoenix {
@@ -16,56 +17,58 @@ namespace phoenix {
 /**
  * @brief SPIで制御コマンドを送るノード
  */
-class CommandServerNode : public rclcpp::Node {
+class CommandNode : public rclcpp::Node {
 public:
-    CommandServerNode(const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
-
-    /// SPIのデバイスパスを指定するパラメータ名
-    static const std::string PARAM_NAME_DEVICE_PATH;
-
-    /// 速度制御の比例ゲインのパラメータ名
-    static const std::string PARAM_NAME_SPEED_KP;
-
-    /// 速度制御の積分ゲインのパラメータ名
-    static const std::string PARAM_NAME_SPEED_KI;
-
-    /// 姿勢補正制御の比例ゲインのパラメータ名
-    static const std::string PARAM_NAME_COMPENSATION_KP;
-
-    /// 姿勢補正制御の積分ゲインのパラメータ名
-    static const std::string PARAM_NAME_COMPENSATION_KI;
+    CommandNode(const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
 
 private:
     /**
-     * @brief ClearErrorサービスを処理する
+     * @brief cmd_velトピックを処理する
+     */
+    void commandVelocityCallback(const std::shared_ptr<geometry_msgs::msg::Twist> msg);
+
+    /**
+     * @brief clear_errorサービスを処理する
      */
     void clearErrorCallback(const std::shared_ptr<rmw_request_id_t> request_header, const std::shared_ptr<phoenix_msgs::srv::ClearError::Request> request,
                             const std::shared_ptr<phoenix_msgs::srv::ClearError::Response> response);
 
     /**
-     * @brief SetSpeedサービスを処理する
-     */
-    void setSpeedCallback(const std::shared_ptr<rmw_request_id_t> request_header, const std::shared_ptr<phoenix_msgs::srv::SetSpeed::Request> request,
-                          const std::shared_ptr<phoenix_msgs::srv::SetSpeed::Response> response);
-
-    /**
-     * @brief ProgramNiosサービスを処理する
+     * @brief program_niosサービスを処理する
      */
     void programNiosCallback(const std::shared_ptr<rmw_request_id_t> request_header, const std::shared_ptr<phoenix_msgs::srv::ProgramNios::Request> request,
                              const std::shared_ptr<phoenix_msgs::srv::ProgramNios::Response> response);
 
     /**
-     * @brief ProgramFpgaサービスを処理する
+     * @brief program_fpgaサービスを処理する
      */
     void programFpgaCallback(const std::shared_ptr<rmw_request_id_t> request_header, const std::shared_ptr<phoenix_msgs::srv::ProgramFpga::Request> request,
                              const std::shared_ptr<phoenix_msgs::srv::ProgramFpga::Response> response);
 
     /**
-     * @brief パラメータをfloat型として取得する
-     * @param parameter_name パラメータ名
-     * @param default_value パラメータの型が不正だった場合に返すデフォルト値
+     * @brief 設定されたパラメータを処理する
+     * @param param パラメータのvector
+     * @return 結果
      */
-    float getFloatParameter(const std::string &parameter_name, float default_value = 0.0f);
+    rcl_interfaces::msg::SetParametersResult setParameterCallback(const std::vector<rclcpp::Parameter> &parameters);
+
+    /**
+     * @brief パラメータをfloatに変換する
+     * double型およびint型のパラメータからのみ変換できる。
+     * @param parameter 変換するパラメータ
+     * @return 変換結果
+     */
+    static float toFloat(const rclcpp::Parameter &parameter);
+
+    /**
+     * @brief パラメータがfloatに変換できて範囲内ならdestinationに代入しtrueを返す。それ以外ならfalseを返す。
+     * @param parameter 変換するパラメータ
+     * @param lower_bound 下限値
+     * @param upper_bound 上限値
+     * @param destination 代入先
+     * @return trueならdestinationにパラメータを代入した。falseならしなかった。
+     */
+    static bool writeFloatParameterToMemory(const rclcpp::Parameter &parameter, float lower_bound, float upper_bound, float *destination);
 
     /// SPI
     std::shared_ptr<Spi> _spi;
@@ -73,21 +76,24 @@ private:
     /// Avalon-MMマスター
     std::shared_ptr<AvalonMm> _avalon_mm;
 
-    /// ClearErrorサービス
+    // cmd_velトピックの購読
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr _velocity_subscription;
+
+    /// clear_errorサービス
     rclcpp::Service<phoenix_msgs::srv::ClearError>::SharedPtr _clear_error_service;
 
-    /// SetSpeedサービス
-    rclcpp::Service<phoenix_msgs::srv::SetSpeed>::SharedPtr _set_speed_service;
-
-    /// ProgramNiosサービス
+    /// program_niosサービス
     rclcpp::Service<phoenix_msgs::srv::ProgramNios>::SharedPtr _program_nios_service;
 
-    /// ProgramFpgaサービス
+    /// program_fpgaサービス
     rclcpp::Service<phoenix_msgs::srv::ProgramFpga>::SharedPtr _program_fpga_service;
+
+    /// パラメータが設定されたとき呼ばれるコールバックを保持する
+    rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr _parameter_handler;
 
     /// 共有メモリー
     SharedMemory_t _shared_memory;
-    
+
     /// SPIのビットレート[Hz]
     static constexpr unsigned int SPI_FREQUENCY = 10000000;
 
@@ -98,7 +104,7 @@ private:
     static constexpr int EPCQ_SPI_MODE = 0;
 
     /// QoSのキューの長さ
-    static constexpr int QOS_DEPTH = 10;
+    static constexpr int QOS_DEPTH = 1;
 };
 
 } // namespace phoenix

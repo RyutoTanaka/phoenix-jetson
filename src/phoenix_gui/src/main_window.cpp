@@ -2,6 +2,7 @@
 #include "cintelhex/cintelhex.h"
 #include "format_value.hpp"
 #include "ui_main_window.h"
+#include "../../phoenix/include/phoenix.hpp"
 #include <QtCore/QDebug>
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QSettings>
@@ -213,7 +214,7 @@ void MainWindow::reloadNamespaceList(void) {
     }
 }
 
-void MainWindow::connectToNodes(QString namespace_name) {
+void MainWindow::connectToNodes(const QString &namespace_name) {
     // 既存のノードとスレッドを終了する
     quitNodeThread();
 
@@ -223,37 +224,38 @@ void MainWindow::connectToNodes(QString namespace_name) {
         emit updateRequest();
         return;
     }
-    
-    // ルート名前空間の場合は'/'が二重になってしまうので'/'を削除する
-    if (namespace_name.endsWith('/')) {
-        namespace_name.chop(1);
-    }
 
-    rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, 1));
-    qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT).durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
+    // '/'を付与する
+    QString namespace_prefix = namespace_name;
+    if (!namespace_prefix.endsWith('/')) {
+        namespace_prefix.append('/');
+    }
 
     // ノードとスレッドを作成する
     _NodeThread = new NodeThread(this, createNode());
     connect(_NodeThread, &NodeThread::finished, _NodeThread, &QObject::deleteLater);
 
+    // センサーデータを購読するときのQoSの設定
+    const rclcpp::SensorDataQoS qos_sensor;
+
     // batteryトピックを受信するSubscriptionを作成する
-    QString battery_topic_name = namespace_name + "/battery";
+    QString battery_topic_name = namespace_prefix + phoenix::TOPIC_NAME_BATTERY;
     _Subscribers.battery = _NodeThread->node()->create_subscription<sensor_msgs::msg::BatteryState>(
-        battery_topic_name.toStdString(), qos, [this](const std::shared_ptr<sensor_msgs::msg::BatteryState> msg) {
+        battery_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<sensor_msgs::msg::BatteryState> msg) {
             std::atomic_store(&_LastMessages.battery, msg);
         });
 
     // stream_data_statusトピックを受信するSubscriptionを作成する
-    QString status_topic_name = namespace_name + "/phoenix_status";
+    QString status_topic_name = namespace_prefix + phoenix::TOPIC_NAME_STATUS;
     _Subscribers.status = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataStatus>(
-        status_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataStatus> msg) {
+        status_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataStatus> msg) {
             std::atomic_store(&_LastMessages.status, msg);
         });
 
     // stream_data_adc2トピックを受信するSubscriptionを作成する
-    QString adc2_topic_name = namespace_name + "/phoenix_adc2";
+    QString adc2_topic_name = namespace_prefix + phoenix::TOPIC_NAME_ADC2;
     _Subscribers.adc2 = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataAdc2>(
-        adc2_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> msg) {
+        adc2_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> msg) {
             if (!_LastMessages.adc2) {
                 std::atomic_store(&_LastMessages.adc2, msg);
             }
@@ -266,9 +268,9 @@ void MainWindow::connectToNodes(QString namespace_name) {
         });
 
     // stream_data_motionトピックを受信するSubscriptionを作成する
-    QString motion_topic_name = namespace_name + "/phoenix_motion";
+    QString motion_topic_name = namespace_prefix + phoenix::TOPIC_NAME_MOTION;
     _Subscribers.motion = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataMotion>(
-        motion_topic_name.toStdString(), qos, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> msg) {
+        motion_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> msg) {
             std::atomic_store(&_LastMessages.motion, msg);
             std::shared_ptr<QFile> file = _LogFile;
             if (file) {
@@ -318,22 +320,18 @@ void MainWindow::connectToNodes(QString namespace_name) {
         });
 
     // imageトピックを受信するSubscriptionを作成する
-    _Subscribers.image =
-        _NodeThread->node()->create_subscription<sensor_msgs::msg::Image>("/video_source/raw", qos, [this](const std::shared_ptr<sensor_msgs::msg::Image> msg) {
-            _ImageViewer->setImage(msg);
-            emit updateRequest();
-        });
+    _Subscribers.image = _NodeThread->node()->create_subscription<sensor_msgs::msg::Image>("/video_source/raw", qos_sensor,
+                                                                                           [this](const std::shared_ptr<sensor_msgs::msg::Image> msg) {
+                                                                                               _ImageViewer->setImage(msg);
+                                                                                               emit updateRequest();
+                                                                                           });
 
-    // 指令値を設定するサービスを見つける
-    QString set_speed_service_name = namespace_name + "/set_speed";
-    _Clients.set_speed = _NodeThread->node()->create_client<phoenix_msgs::srv::SetSpeed>(set_speed_service_name.toStdString());
-    if (_Clients.set_speed->wait_for_service(std::chrono::milliseconds(1000)) == false) {
-        _Clients.set_speed.reset();
-        _Ui->enableControllerCheckBox->setChecked(false);
-    }
+    // cmd_velトピックを配信するPublisherを作成する
+    const QString velocity_topic_name = namespace_prefix + phoenix::TOPIC_NAME_COMMAND_VELOCITY;
+    _publishers.velocity = _NodeThread->node()->create_publisher<geometry_msgs::msg::Twist>(velocity_topic_name.toStdString(), 1);
 
     // NiosII書き換えサービスを見つける
-    QString program_nios_service_name = namespace_name + "/program_nios";
+    QString program_nios_service_name = namespace_prefix + phoenix::SERVICE_NAME_PROGRAM_NIOS;
     _Clients.program_nios = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramNios>(program_nios_service_name.toStdString());
     if (_Clients.program_nios->wait_for_service(std::chrono::milliseconds(1000)) == false) {
         _Clients.program_nios.reset();
@@ -344,7 +342,7 @@ void MainWindow::connectToNodes(QString namespace_name) {
     }
 
     // FPGA書き換えサービスを見つける
-    QString program_fpga_service_name = namespace_name + "/program_fpga";
+    QString program_fpga_service_name = namespace_prefix + phoenix::SERVICE_NAME_PROGRAM_FPGA;
     _Clients.program_fpga = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramFpga>(program_fpga_service_name.toStdString());
     if (_Clients.program_fpga->wait_for_service(std::chrono::milliseconds(1000)) == false) {
         _Clients.program_fpga.reset();
@@ -539,8 +537,10 @@ void MainWindow::quitNodeThread(void) {
         _Subscribers.motion.reset();
         _Subscribers.image.reset();
 
+        // Publisherを破棄する
+        _publishers.velocity.reset();
+
         // Clientsを破棄する
-        _Clients.set_speed.reset();
         _Clients.program_nios.reset();
         _Clients.program_fpga.reset();
         _Ui->programNiosButton->setEnabled(false);
@@ -556,26 +556,26 @@ void MainWindow::quitNodeThread(void) {
 }
 
 void MainWindow::sendCommand(void) {
-    if ((_Clients.set_speed) && _Ui->enableControllerCheckBox->isChecked()) {
-        auto request = std::make_shared<phoenix_msgs::srv::SetSpeed::Request>();
+    if (_publishers.velocity && _Ui->enableControllerCheckBox->isChecked()) {
+        geometry_msgs::msg::Twist msg;
         bool gamepad_selected;
         int gamepad_device_id = _Ui->gamepadComboBox->currentData().toInt(&gamepad_selected);
         if (gamepad_selected) {
             auto input_state = _GamepadThread->inputState(gamepad_device_id);
             if (input_state) {
-                request->speed_x = 4.0f * input_state->leftStickX;
-                request->speed_y = 4.0f * input_state->leftStickY;
-                request->speed_omega = -10.0f * input_state->rightStickX;
-                request->dribble_power = -input_state->rightTrigger;
+                msg.linear.x = 4.0f * input_state->leftStickX;
+                msg.linear.y = 4.0f * input_state->leftStickY;
+                msg.linear.z = -input_state->rightTrigger;
+                msg.angular.z = -10.0f * input_state->rightStickX;
+                _publishers.velocity->publish(msg);
             }
         }
         else {
-            request->speed_x = _Pad.velocity_scale_x;
-            request->speed_y = _Pad.velocity_scale_y;
-            request->speed_omega = _Pad.velocity_scale_omega * 0.1;
+            msg.linear.x = _Pad.velocity_scale_x;
+            msg.linear.y = _Pad.velocity_scale_y;
+            msg.angular.z = _Pad.velocity_scale_omega * 0.1;
+            _publishers.velocity->publish(msg);
         }
-        auto result = _Clients.set_speed->async_send_request(request);
-        result.wait();
     }
 }
 

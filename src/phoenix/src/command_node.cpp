@@ -2,19 +2,16 @@
 #include "gpio.hpp"
 #include "avalon_st.hpp"
 #include "epcq.hpp"
+#include "../include/phoenix.hpp"
 #include <chrono>
-#include <thread>
 #include <cstring>
+#include <cmath>
+#include <limits>
+#include <thread>
 
 using namespace std::chrono_literals;
 
 namespace phoenix {
-
-const std::string CommandServerNode::PARAM_NAME_DEVICE_PATH("device_path");
-const std::string CommandServerNode::PARAM_NAME_SPEED_KP("speed_kp");
-const std::string CommandServerNode::PARAM_NAME_SPEED_KI("speed_ki");
-const std::string CommandServerNode::PARAM_NAME_COMPENSATION_KP("compensation_kp");
-const std::string CommandServerNode::PARAM_NAME_COMPENSATION_KI("compensation_ki");
 
 static const std::string DEFAULT_DEVICE_PATH("/dev/spidev1.0");
 static constexpr double DEFAULT_SPEED_KP = 5.0;
@@ -61,19 +58,22 @@ static constexpr uint8_t BIT_REVERSAL_TABLE[256] = {
     7, 135, 71, 199, 39, 167, 103, 231, 23, 151, 87, 215, 55, 183, 119, 247, 15, 143, 79, 207, 47, 175, 111, 239, 31, 159, 95, 223, 63, 191, 127, 255,
 };
 
-CommandServerNode::CommandServerNode(const rclcpp::NodeOptions &options) : Node("phoenix_command") {
+CommandNode::CommandNode(const rclcpp::NodeOptions &options) : Node(command::NODE_NAME) {
     using namespace std::placeholders;
     (void)options;
-
+    
     // 共有メモリーを初期化する
     memset(&_shared_memory, 0, sizeof(_shared_memory));
 
+    // パラメータ設定時に呼ばれるコールバックを設定する
+    _parameter_handler = add_on_set_parameters_callback(std::bind(&CommandNode::setParameterCallback, this, _1));
+
     // パラメータを宣言し値を取得する
-    auto device_path = declare_parameter<std::string>(PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
-    declare_parameter<double>(PARAM_NAME_SPEED_KP, DEFAULT_SPEED_KP);
-    declare_parameter<double>(PARAM_NAME_SPEED_KI, DEFAULT_SPEED_KI);
-    declare_parameter<double>(PARAM_NAME_COMPENSATION_KP, DEFAULT_COMPENSATION_KP);
-    declare_parameter<double>(PARAM_NAME_COMPENSATION_KI, DEFAULT_COMPENSATION_KI);
+    auto device_path = declare_parameter<std::string>(command::PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_KP, DEFAULT_SPEED_KP);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_KI, DEFAULT_SPEED_KI);
+    declare_parameter<double>(command::PARAM_NAME_COMPENSATION_KP, DEFAULT_COMPENSATION_KP);
+    declare_parameter<double>(command::PARAM_NAME_COMPENSATION_KI, DEFAULT_COMPENSATION_KI);
 
     // SPIデバイスを開く
     _spi = std::make_shared<Spi>();
@@ -84,19 +84,41 @@ CommandServerNode::CommandServerNode(const rclcpp::NodeOptions &options) : Node(
     _spi->setMode(FPGA_SPI_MODE);
     _avalon_mm = std::make_shared<AvalonMm>(_spi);
 
+    // トピックを購読する
+    const rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, 1));
+    _velocity_subscription =
+        create_subscription<geometry_msgs::msg::Twist>(TOPIC_NAME_COMMAND_VELOCITY, qos, std::bind(&CommandNode::commandVelocityCallback, this, _1));
+
     // サービスを登録する
-    rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, QOS_DEPTH));
-    _clear_error_service = create_service<phoenix_msgs::srv::ClearError>("clear_error", std::bind(&CommandServerNode::clearErrorCallback, this, _1, _2, _3));
-    _set_speed_service = create_service<phoenix_msgs::srv::SetSpeed>("set_speed", std::bind(&CommandServerNode::setSpeedCallback, this, _1, _2, _3));
+    _clear_error_service =
+        create_service<phoenix_msgs::srv::ClearError>(SERVICE_NAME_CLEAR_ERROR, std::bind(&CommandNode::clearErrorCallback, this, _1, _2, _3));
     _program_nios_service =
-        create_service<phoenix_msgs::srv::ProgramNios>("program_nios", std::bind(&CommandServerNode::programNiosCallback, this, _1, _2, _3));
+        create_service<phoenix_msgs::srv::ProgramNios>(SERVICE_NAME_PROGRAM_NIOS, std::bind(&CommandNode::programNiosCallback, this, _1, _2, _3));
     _program_fpga_service =
-        create_service<phoenix_msgs::srv::ProgramFpga>("program_fpga", std::bind(&CommandServerNode::programFpgaCallback, this, _1, _2, _3));
+        create_service<phoenix_msgs::srv::ProgramFpga>(SERVICE_NAME_PROGRAM_FPGA, std::bind(&CommandNode::programFpgaCallback, this, _1, _2, _3));
 }
 
-void CommandServerNode::clearErrorCallback(const std::shared_ptr<rmw_request_id_t> request_header,
-                                           const std::shared_ptr<phoenix_msgs::srv::ClearError::Request> request,
-                                           const std::shared_ptr<phoenix_msgs::srv::ClearError::Response> response) {
+void CommandNode::commandVelocityCallback(const std::shared_ptr<geometry_msgs::msg::Twist> msg) {
+    // パラメータをコピーする
+    _shared_memory.Parameters.FrameNumber++;
+    _shared_memory.Parameters.speed_x = msg->linear.x;
+    _shared_memory.Parameters.speed_y = msg->linear.y;
+    _shared_memory.Parameters.speed_omega = msg->angular.z;
+    _shared_memory.Parameters.dribble_power = msg->linear.z; // 並進ベクトルのZ成分をドリブルとして扱う
+
+    // チェックサムを計算して格納する
+    uint32_t checksum = _shared_memory.Parameters.CalculateChecksum();
+    _shared_memory.HeadChecksum = checksum;
+    _shared_memory.TailChecksum = checksum;
+
+    // パラメータと前後のチェックサムを書き込む
+    _avalon_mm->writeData(NIOS_SHARED_RAM_BASE + static_cast<uint32_t>(offsetof(SharedMemory_t, HeadChecksum)),
+                          sizeof(SharedMemory_t::Parameters_t) + sizeof(uint32_t) * 2, &_shared_memory.HeadChecksum);
+}
+
+void CommandNode::clearErrorCallback(const std::shared_ptr<rmw_request_id_t> request_header,
+                                     const std::shared_ptr<phoenix_msgs::srv::ClearError::Request> request,
+                                     const std::shared_ptr<phoenix_msgs::srv::ClearError::Response> response) {
     (void)request_header;
     (void)request;
 
@@ -134,35 +156,9 @@ void CommandServerNode::clearErrorCallback(const std::shared_ptr<rmw_request_id_
     response->succeeded = true;
 }
 
-void CommandServerNode::setSpeedCallback(const std::shared_ptr<rmw_request_id_t> request_header,
-                                         const std::shared_ptr<phoenix_msgs::srv::SetSpeed::Request> request,
-                                         const std::shared_ptr<phoenix_msgs::srv::SetSpeed::Response> response) {
-    (void)request_header;
-
-    // パラメータをコピーする
-    _shared_memory.Parameters.FrameNumber++;
-    _shared_memory.Parameters.speed_x = request->speed_x;
-    _shared_memory.Parameters.speed_y = request->speed_y;
-    _shared_memory.Parameters.speed_omega = request->speed_omega;
-    _shared_memory.Parameters.dribble_power = request->dribble_power;
-    _shared_memory.Parameters.speed_gain_p = std::fmaxf(0.0f, getFloatParameter(PARAM_NAME_SPEED_KP));
-    _shared_memory.Parameters.speed_gain_i = std::fmaxf(0.0f, getFloatParameter(PARAM_NAME_SPEED_KI));
-    _shared_memory.Parameters.compensation_gain_p = std::fmaxf(0.0f, getFloatParameter(PARAM_NAME_COMPENSATION_KP));
-    _shared_memory.Parameters.compensation_gain_i = std::fmaxf(0.0f, getFloatParameter(PARAM_NAME_COMPENSATION_KI));
-
-    // チェックサムを計算して格納する
-    uint32_t checksum = _shared_memory.Parameters.CalculateChecksum();
-    _shared_memory.HeadChecksum = checksum;
-    _shared_memory.TailChecksum = checksum;
-
-    // パラメータと前後のチェックサムを書き込む
-    response->succeeded = _avalon_mm->writeData(NIOS_SHARED_RAM_BASE + static_cast<uint32_t>(offsetof(SharedMemory_t, HeadChecksum)),
-                                                sizeof(SharedMemory_t::Parameters_t) + sizeof(uint32_t) * 2, &_shared_memory.HeadChecksum);
-}
-
-void CommandServerNode::programNiosCallback(const std::shared_ptr<rmw_request_id_t> request_header,
-                                            const std::shared_ptr<phoenix_msgs::srv::ProgramNios::Request> request,
-                                            const std::shared_ptr<phoenix_msgs::srv::ProgramNios::Response> response) {
+void CommandNode::programNiosCallback(const std::shared_ptr<rmw_request_id_t> request_header,
+                                      const std::shared_ptr<phoenix_msgs::srv::ProgramNios::Request> request,
+                                      const std::shared_ptr<phoenix_msgs::srv::ProgramNios::Response> response) {
     (void)request_header;
 
     // GPIOを開く
@@ -216,8 +212,12 @@ void CommandServerNode::programNiosCallback(const std::shared_ptr<rmw_request_id
 
     if (succeeded) {
         // 共有メモリーを消去する
-        memset(&_shared_memory, 0, sizeof(_shared_memory));
-        _avalon_mm->writeData(NIOS_SHARED_RAM_BASE, sizeof(SharedMemory_t), &_shared_memory);
+        SharedMemory_t zeros;
+        memset(&zeros, 0, sizeof(zeros));
+        _avalon_mm->writeData(NIOS_SHARED_RAM_BASE, sizeof(zeros), &zeros);
+
+        // 次に書き込むフレームナンバーをゼロに初期化する
+        _shared_memory.Parameters.FrameNumber = 0;
     }
 
     if (succeeded) {
@@ -239,9 +239,9 @@ void CommandServerNode::programNiosCallback(const std::shared_ptr<rmw_request_id
     response->succeeded = succeeded;
 }
 
-void CommandServerNode::programFpgaCallback(const std::shared_ptr<rmw_request_id_t> request_header,
-                                            const std::shared_ptr<phoenix_msgs::srv::ProgramFpga::Request> request,
-                                            const std::shared_ptr<phoenix_msgs::srv::ProgramFpga::Response> response) {
+void CommandNode::programFpgaCallback(const std::shared_ptr<rmw_request_id_t> request_header,
+                                      const std::shared_ptr<phoenix_msgs::srv::ProgramFpga::Request> request,
+                                      const std::shared_ptr<phoenix_msgs::srv::ProgramFpga::Response> response) {
     (void)request_header;
 
     // GPIOを開く
@@ -264,7 +264,7 @@ void CommandServerNode::programFpgaCallback(const std::shared_ptr<rmw_request_id
     // FPGA_CONFIG_Nを解放してFPGAをリコンフィギュレーションする
     config_pin.setOutputEnabled(false);
 
-    // 250ms待つ
+    // コンフィギュレーションが完了するのを250ms待つ
     std::this_thread::sleep_for(250ms);
 
     // 書き込むデータのビット順序を反転する
@@ -364,30 +364,69 @@ void CommandServerNode::programFpgaCallback(const std::shared_ptr<rmw_request_id
     response->succeeded = succeeded;
 }
 
-float CommandServerNode::getFloatParameter(const std::string &parameter_name, float default_value) {
-    auto parameter = get_parameter(parameter_name);
+rcl_interfaces::msg::SetParametersResult CommandNode::setParameterCallback(const std::vector<rclcpp::Parameter> &parameters) {
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+
+    // 各パラメータと名前が一致したら値を反映する
+    // 新しいパラメータは次にcmd_velトピックを受信したときに共有メモリに書き込まれる
+    for (auto &parameter : parameters) {
+        constexpr float inf = std::numeric_limits<float>::infinity();
+        if (parameter.get_name() == command::PARAM_NAME_SPEED_KP) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p);
+        }
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_KI) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i);
+        }
+        else if (parameter.get_name() == command::PARAM_NAME_COMPENSATION_KP) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.compensation_gain_p);
+        }
+        else if (parameter.get_name() == command::PARAM_NAME_COMPENSATION_KI) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.compensation_gain_i);
+        }
+        if (!result.successful) {
+            if (result.reason.empty()) {
+                result.reason = "Wrong value";
+            }
+            break;
+        }
+    }
+
+    return result;
+}
+
+float CommandNode::toFloat(const rclcpp::Parameter &parameter) {
     switch (parameter.get_type()) {
     case rclcpp::PARAMETER_DOUBLE:
-        return parameter.as_double();
+        return static_cast<float>(parameter.as_double());
 
     case rclcpp::PARAMETER_INTEGER:
-        return parameter.as_int();
+        return static_cast<float>(parameter.as_int());
 
     default:
-        return default_value;
+        return std::numeric_limits<float>::quiet_NaN();
     }
+}
+
+bool CommandNode::writeFloatParameterToMemory(const rclcpp::Parameter &parameter, float lower_bound, float upper_bound, float *destination) {
+    float value = toFloat(parameter);
+    if (std::isfinite(value) && (lower_bound <= value) && (value <= upper_bound)) {
+        *destination = value;
+        return true;
+    }
+    return false;
 }
 
 } // namespace phoenix
 
 #if PHOENIX_BUILD_LIBRARY
 #include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(phoenix::CommandServerNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(phoenix::CommandNode)
 #elif PHOENIX_BUILD_STANDALONE
 int main(int argc, char *argv[]) {
     // ROS2ノードを起動する
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<phoenix::CommandServerNode>());
+    rclcpp::spin(std::make_shared<phoenix::CommandNode>());
     rclcpp::shutdown();
     return 0;
 }

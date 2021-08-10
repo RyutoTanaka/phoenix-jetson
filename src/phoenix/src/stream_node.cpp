@@ -1,4 +1,5 @@
 #include "stream_node.hpp"
+#include "../include/phoenix.hpp"
 #include <rcutils/logging.h>
 #include <chrono>
 
@@ -6,16 +7,14 @@ using namespace std::chrono_literals;
 
 namespace phoenix {
 
-const std::string StreamPublisherNode::PARAM_NAME_DEVICE_PATH = "device_path";
-
 /// UARTのデバイスパスの初期値
 static const std::string DEFAULT_DEVICE_PATH = "/dev/ttyTHS1";
 
-StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : Node("phoenix_stream"), _uart(new Uart) {
+StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : Node(stream::NODE_NAME), _uart(new Uart) {
     (void)options;
 
     // パラメータを宣言し値を取得する
-    auto device_path = declare_parameter<std::string>(PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
+    auto device_path = declare_parameter<std::string>(stream::PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
 
     // UARTデバイスを開いて設定する
     if (!_uart->openDevice(device_path)) {
@@ -33,10 +32,10 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
 
     // publisherを作成する
     rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, QOS_DEPTH));
-    _status_publisher = create_publisher<phoenix_msgs::msg::StreamDataStatus>("phoenix_status", qos);
-    _adc2_publisher = create_publisher<phoenix_msgs::msg::StreamDataAdc2>("phoenix_adc2", qos);
-    _motion_publisher = create_publisher<phoenix_msgs::msg::StreamDataMotion>("phoenix_motion", qos);
-    _imu_publisher = create_publisher<sensor_msgs::msg::Imu>("phoenix_imu", qos);
+    _status_publisher = create_publisher<phoenix_msgs::msg::StreamDataStatus>(TOPIC_NAME_STATUS, qos);
+    _adc2_publisher = create_publisher<phoenix_msgs::msg::StreamDataAdc2>(TOPIC_NAME_ADC2, qos);
+    _motion_publisher = create_publisher<phoenix_msgs::msg::StreamDataMotion>(TOPIC_NAME_MOTION, qos);
+    _imu_publisher = create_publisher<sensor_msgs::msg::Imu>(TOPIC_NAME_IMU, qos);
 
     // スレッドを起動する
     _receive_thread = new std::thread([this](void) {

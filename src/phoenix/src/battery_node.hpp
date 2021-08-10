@@ -1,25 +1,20 @@
 #pragma once
 
-#include <memory>
+#include "i2c.hpp"
+#include "ads1015.hpp"
+#include "../include/phoenix.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/qos.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <sensor_msgs/msg/temperature.hpp>
-#include "i2c.hpp"
-#include "ads1015.hpp"
+#include <memory>
 
 namespace phoenix {
 
 class BatteryPublisherNode : public rclcpp::Node {
 public:
     BatteryPublisherNode(const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
-
-    /// デバイスパスを指定するパラメータ名
-    static const std::string PARAM_NAME_DEVICE_PATH;
-
-    /// デバイスのI2Cアドレスを指定するパラメータ名
-    static const std::string PARAM_NAME_DEVICE_ADDRESS;
 
 private:
     /**

@@ -18,6 +18,9 @@
 
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>phoenix_msgs</depend>
 </package>

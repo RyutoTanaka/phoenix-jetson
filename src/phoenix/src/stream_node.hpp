@@ -29,9 +29,6 @@ public:
 
     virtual ~StreamPublisherNode();
 
-    /// UARTのデバイスパスを指定するパラメータ名
-    static const std::string PARAM_NAME_DEVICE_PATH;
-
 private:
     /**
      * @brief 受信スレッドのエントリポイント

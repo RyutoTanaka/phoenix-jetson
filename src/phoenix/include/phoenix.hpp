@@ -57,19 +57,19 @@ namespace command {
 static constexpr char NODE_NAME[] = "phoenix_command";
 
 /// SPIのデバイスパスのパラメータ名
-static const char PARAM_NAME_DEVICE_PATH[] = "device_path";
+static constexpr char PARAM_NAME_DEVICE_PATH[] = "device_path";
 
 /// 速度制御の比例ゲインのパラメータ名
-static const char PARAM_NAME_SPEED_KP[] = "speed_kp";
+static constexpr char PARAM_NAME_SPEED_KP[] = "speed_kp";
 
 /// 速度制御の積分ゲインのパラメータ名
-static const char PARAM_NAME_SPEED_KI[] = "speed_ki";
+static constexpr char PARAM_NAME_SPEED_KI[] = "speed_ki";
 
 /// 姿勢補正制御の比例ゲインのパラメータ名
-static const char PARAM_NAME_COMPENSATION_KP[] = "compensation_kp";
+static constexpr char PARAM_NAME_COMPENSATION_KP[] = "compensation_kp";
 
 /// 姿勢補正制御の積分ゲインのパラメータ名
-static const char PARAM_NAME_COMPENSATION_KI[] = "compensation_ki";
+static constexpr char PARAM_NAME_COMPENSATION_KI[] = "compensation_ki";
 
 } // namespace command
 
