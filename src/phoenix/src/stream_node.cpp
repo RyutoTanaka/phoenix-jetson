@@ -1,4 +1,5 @@
 #include "stream_node.hpp"
+#include "timestamp.hpp"
 #include "../include/phoenix.hpp"
 #include <rcutils/logging.h>
 #include <chrono>
@@ -9,6 +10,9 @@ namespace phoenix {
 
 /// UARTのデバイスパスの初期値
 static const std::string DEFAULT_DEVICE_PATH = "/dev/ttyTHS1";
+
+/// IMUのframe_id
+static const std::string IMU_FRAME_ID = "";
 
 StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : Node(stream::NODE_NAME), _uart(new Uart) {
     (void)options;
@@ -30,12 +34,11 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
         throw;
     }
 
-    // publisherを作成する
-    rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, QOS_DEPTH));
-    _status_publisher = create_publisher<phoenix_msgs::msg::StreamDataStatus>(TOPIC_NAME_STATUS, qos);
-    _adc2_publisher = create_publisher<phoenix_msgs::msg::StreamDataAdc2>(TOPIC_NAME_ADC2, qos);
-    _motion_publisher = create_publisher<phoenix_msgs::msg::StreamDataMotion>(TOPIC_NAME_MOTION, qos);
-    _imu_publisher = create_publisher<sensor_msgs::msg::Imu>(TOPIC_NAME_IMU, qos);
+    // Publisherを作成する
+    _status_publisher = create_publisher<phoenix_msgs::msg::StreamDataStatus>(TOPIC_NAME_STATUS, QOS_DEPTH);
+    _adc2_publisher = create_publisher<phoenix_msgs::msg::StreamDataAdc2>(TOPIC_NAME_ADC2, QOS_DEPTH);
+    _motion_publisher = create_publisher<phoenix_msgs::msg::StreamDataMotion>(TOPIC_NAME_MOTION, QOS_DEPTH);
+    _imu_publisher = create_publisher<sensor_msgs::msg::Imu>(TOPIC_NAME_IMU, QOS_DEPTH);
 
     // スレッドを起動する
     _receive_thread = new std::thread([this](void) {
@@ -277,6 +280,10 @@ void StreamPublisherNode::convertMotion(const StreamDataMotion_t &data, phoenix_
     motion->performance_counter = data.performance_counter;
 
     // IMU測定値をImuメッセージに変換する
+    imu->header.stamp = getTimeStamp();
+    if (!IMU_FRAME_ID.empty()) {
+        imu->header.frame_id = IMU_FRAME_ID;
+    }
     imu->orientation_covariance[0] = -1.0;
     imu->linear_acceleration.x = data.accelerometer[0];
     imu->linear_acceleration.y = data.accelerometer[1];

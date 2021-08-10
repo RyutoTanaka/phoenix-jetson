@@ -1,4 +1,5 @@
 #include "battery_node.hpp"
+#include "timestamp.hpp"
 #include <rcutils/logging.h>
 #include <cmath>
 #include <limits>
@@ -84,6 +85,7 @@ void BatteryPublisherNode::timerCallback(void) {
         _battery_state.temperature = 1.0f / (-log(ratio) / 3380 + 1.0f / (273.15f + 25.0f)) - 273.15f;
 
         // 測定結果を配信する
+        _battery_state.header.stamp = getTimeStamp();
         _battery_state.present = (_vsys_voltage <= _battery_state.voltage); // VbatよりVsysが高かったらバッテリー非接続とする
         _battery_state.power_supply_status = _battery_state.present ? sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING
                                                                     : sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_NOT_CHARGING;
