@@ -19,6 +19,7 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>diagnostic_updater</depend>
+  <depend>self_test</depend>
   <depend>std_msgs</depend>
   <depend>diagnostic_msgs</depend>
   <depend>geometry_msgs</depend>

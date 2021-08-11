@@ -1,6 +1,15 @@
 #include "diagnostics.hpp"
 #include <status_flags.hpp>
 #include <sstream>
+#include <cctype>
+
+#ifndef _MSC_VER
+extern "C" {
+#include <sys/utsname.h>
+}
+#else
+#include <Windows.h>
+#endif
 
 namespace phoenix {
 
@@ -113,6 +122,37 @@ void createFpgaDiagnostics(const StreamDataStatus_t &status, diagnostic_msgs::ms
             diag.values.push_back(std::move(item2));
         }
     }
+}
+
+std::string getRegularHostName(void) {
+#ifndef _MSC_VER
+    struct utsname buffer;
+    if (uname(&buffer) < 0) {
+        return {};
+    }
+    std::string result = buffer.nodename;
+#else
+    char buffer[MAX_COMPUTERNAME_LENGTH + 1];
+    DWORD length = sizeof(buffer);
+    if (!GetComputerNameA(buffer, &length)) {
+        return {};
+    }
+    std::string result(buffer, length);
+#endif
+    if (!result.empty()) {
+        // アルファベットと数字以外の文字をアンダースコアに置換する
+        for (char &c : result) {
+            if (!std::isalnum(c)) {
+                c = '_';
+            }
+        }
+
+        // 数字で始まる場合は先頭にアンダースコアを追加する
+        if (isdigit(result[0])) {
+            result = '_' + result;
+        }
+    }
+    return result;
 }
 
 } // namespace phoenix

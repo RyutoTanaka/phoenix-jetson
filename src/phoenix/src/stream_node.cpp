@@ -42,11 +42,11 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
 
     // トピックを購読する
     _injected_error_flags_subscription =
-        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+        create_subscription<std_msgs::msg::UInt32>(test::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
             _injected_error_flags = msg->data;
         });
     _injected_fault_flags_subscription =
-        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+        create_subscription<std_msgs::msg::UInt32>(test::TOPIC_NAME_INJECTED_FAULT_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
             _injected_fault_flags = msg->data;
         });
 
@@ -56,7 +56,7 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
     _imu_publisher = create_publisher<sensor_msgs::msg::Imu>(TOPIC_NAME_IMU, QOS_DEPTH);
 
     // 診断ステータスの初期化を行う
-    _diag_updater.setHardwareID("none");
+    _diag_updater.setHardwareID(get_namespace());
     _diag_updater.add(DIAGNOSTICS_NAME_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
         createFpgaDiagnostics(_status, diag);
     });

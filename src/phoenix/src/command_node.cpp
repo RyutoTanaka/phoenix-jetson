@@ -59,7 +59,8 @@ static constexpr uint8_t BIT_REVERSAL_TABLE[256] = {
     7, 135, 71, 199, 39, 167, 103, 231, 23, 151, 87, 215, 55, 183, 119, 247, 15, 143, 79, 207, 47, 175, 111, 239, 31, 159, 95, 223, 63, 191, 127, 255,
 };
 
-CommandNode::CommandNode(const rclcpp::NodeOptions &options) : Node(command::NODE_NAME) {
+CommandNode::CommandNode(const rclcpp::NodeOptions &options)
+    : Node(command::NODE_NAME), _test_runner(get_node_base_interface(), get_node_services_interface(), get_node_logging_interface()) {
     using namespace std::placeholders;
     (void)options;
 
@@ -89,20 +90,25 @@ CommandNode::CommandNode(const rclcpp::NodeOptions &options) : Node(command::NOD
     _velocity_subscription =
         create_subscription<geometry_msgs::msg::Twist>(TOPIC_NAME_COMMAND_VELOCITY, QOS_DEPTH, std::bind(&CommandNode::commandVelocityCallback, this, _1));
     _injected_error_flags_subscription =
-        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+        create_subscription<std_msgs::msg::UInt32>(test::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
             _injected_error_flags = msg->data;
         });
     _injected_fault_flags_subscription =
-        create_subscription<std_msgs::msg::UInt32>(internal::TOPIC_NAME_INJECTED_ERROR_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
+        create_subscription<std_msgs::msg::UInt32>(test::TOPIC_NAME_INJECTED_FAULT_FLAGS, 1, [this](std_msgs::msg::UInt32::SharedPtr msg) {
             _injected_fault_flags = msg->data;
         });
 
     // サービスを登録する
-    _self_test_service = create_service<diagnostic_msgs::srv::SelfTest>(SERVICE_NAME_SELF_TEST, std::bind(&CommandNode::selfTestCallback, this, _1, _2, _3));
     _program_nios_service =
         create_service<phoenix_msgs::srv::ProgramNios>(SERVICE_NAME_PROGRAM_NIOS, std::bind(&CommandNode::programNiosCallback, this, _1, _2, _3));
     _program_fpga_service =
         create_service<phoenix_msgs::srv::ProgramFpga>(SERVICE_NAME_PROGRAM_FPGA, std::bind(&CommandNode::programFpgaCallback, this, _1, _2, _3));
+
+    // セルフテストを登録する
+    _test_runner.setID(get_namespace());
+    _test_runner.add(DIAGNOSTICS_NAME_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
+        doSelfTestFpga(diag);
+    });
 }
 
 void CommandNode::commandVelocityCallback(const std::shared_ptr<geometry_msgs::msg::Twist> msg) {
@@ -128,14 +134,9 @@ void CommandNode::commandVelocityCallback(const std::shared_ptr<geometry_msgs::m
                           sizeof(SharedMemory_t::Parameters_t) + sizeof(uint32_t) * 2, &_shared_memory.HeadChecksum);
 }
 
-void CommandNode::selfTestCallback(const std::shared_ptr<rmw_request_id_t> request_header,
-                                   const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Request> request,
-                                   const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Response> response) {
-    (void)request_header;
-    (void)request;
-
-    response->id = "FPGA";
-    response->passed = false;
+void CommandNode::doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag) {
+    diag.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    diag.message = "Not respond";
 
     // 現在のエラーフラグとフォルトフラグを確認する
     uint32_t error_flags, fault_flags;
@@ -169,12 +170,10 @@ void CommandNode::selfTestCallback(const std::shared_ptr<rmw_request_id_t> reque
     error_flags |= _injected_error_flags;
 
     // 結果を返す
-    response->status.resize(1);
     StreamDataStatus_t status;
     status.error_flags = error_flags;
     status.fault_flags = fault_flags;
-    createFpgaDiagnostics(status, response->status[0]);
-    response->passed = (response->status[0].level == diagnostic_msgs::msg::DiagnosticStatus::OK);
+    createFpgaDiagnostics(status, diag);
 }
 
 void CommandNode::programNiosCallback(const std::shared_ptr<rmw_request_id_t> request_header,

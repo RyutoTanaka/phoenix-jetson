@@ -4,6 +4,9 @@ namespace phoenix {
 
 
 
+/// 名前空間名
+static constexpr char NAMESPACE_NAME[] = "phoenix";
+
 /// 速度指令値を購読するトピック名
 static constexpr char TOPIC_NAME_COMMAND_VELOCITY[] = "cmd_vel";
 
@@ -22,9 +25,6 @@ static constexpr char TOPIC_NAME_ADC2[] = "adc2";
 /// モーションに関する情報を配信するトピック名
 static constexpr char TOPIC_NAME_MOTION[] = "motion";
 
-/// セルフテストを実行するサービス名
-static constexpr char SERVICE_NAME_SELF_TEST[] = "self_test";
-
 /// Nios IIのプログラムを書き換えるサービス名
 static constexpr char SERVICE_NAME_PROGRAM_NIOS[] = "program_nios";
 
@@ -36,7 +36,7 @@ static constexpr char DIAGNOSTICS_NAME_FPGA[] = "FPGA";
 
 
 
-namespace internal {
+namespace test {
 
 /// テストのためにエラーフラグに故障注入するトピック名
 static constexpr char TOPIC_NAME_INJECTED_ERROR_FLAGS[] = "injected_error_flags";
@@ -51,7 +51,7 @@ static constexpr char TOPIC_NAME_INJECTED_FAULT_FLAGS[] = "injected_fault_flags"
 namespace battery {
 
 /// ノード名
-static constexpr char NODE_NAME[] = "phoenix_battery";
+static constexpr char NODE_NAME[] = "battery";
 
 /// I2Cのデバイスパスのパラメータ名
 static constexpr char PARAM_NAME_DEVICE_PATH[] = "device_path";
@@ -66,7 +66,7 @@ static constexpr char PARAM_NAME_DEVICE_ADDRESS[] = "device_address";
 namespace command {
 
 /// ノード名
-static constexpr char NODE_NAME[] = "phoenix_command";
+static constexpr char NODE_NAME[] = "command";
 
 /// SPIのデバイスパスのパラメータ名
 static constexpr char PARAM_NAME_DEVICE_PATH[] = "device_path";
@@ -90,7 +90,7 @@ static constexpr char PARAM_NAME_COMPENSATION_KI[] = "compensation_ki";
 namespace stream {
 
 /// ノード名
-static constexpr char NODE_NAME[] = "phoenix_stream";
+static constexpr char NODE_NAME[] = "stream";
 
 /// UARTのデバイスパスのパラメータ名
 static constexpr char PARAM_NAME_DEVICE_PATH[] = "device_path";

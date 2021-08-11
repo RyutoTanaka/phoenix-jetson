@@ -12,4 +12,10 @@ namespace phoenix {
  */
 void createFpgaDiagnostics(const StreamDataStatus_t &status, diagnostic_msgs::msg::DiagnosticStatus &diag);
 
+/**
+ * @brief ROS2のノード名や名前空間名として使用可能な文字列のみを含むホスト名を取得する
+ * @return std::string ホスト名
+ */
+std::string getRegularHostName(void);
+
 }

@@ -24,7 +24,7 @@ static constexpr float OVER_VOLTAGE_WARNING_THRESHOLD = 28.0f;
 /// バッテリー低電圧警報の閾値 [V] (この値はSLG46826に設定したUVLO電圧より高い)
 static constexpr float UNDER_VOLTAGE_WARNING_THRESHOLD = 19.2f;
 
-BatteryPublisherNode::BatteryPublisherNode(const rclcpp::NodeOptions &options) : Node("phoenix_battery"), _adc3() {
+BatteryPublisherNode::BatteryPublisherNode(const rclcpp::NodeOptions &options) : Node(battery::NODE_NAME), _adc3() {
     using namespace std::chrono_literals;
     (void)options;
 

@@ -5,6 +5,7 @@
 #include <shared_memory.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/qos.hpp>
+#include <self_test/test_runner.hpp>
 #include <std_msgs/msg/u_int32.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <diagnostic_msgs/srv/self_test.hpp>
@@ -29,10 +30,9 @@ private:
     void commandVelocityCallback(const std::shared_ptr<geometry_msgs::msg::Twist> msg);
 
     /**
-     * @brief self_testサービスを処理する
+     * @brief FPGAのセルフテストを実行する
      */
-    void selfTestCallback(const std::shared_ptr<rmw_request_id_t> request_header, const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Request> request,
-                          const std::shared_ptr<diagnostic_msgs::srv::SelfTest::Response> response);
+    void doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag);
 
     /**
      * @brief program_niosサービスを処理する
@@ -86,9 +86,6 @@ private:
     // injected_fault_flagsトピックのSubscription
     rclcpp::Subscription<std_msgs::msg::UInt32>::SharedPtr _injected_fault_flags_subscription;
 
-    /// self_testサービス
-    rclcpp::Service<diagnostic_msgs::srv::SelfTest>::SharedPtr _self_test_service;
-
     /// program_niosサービス
     rclcpp::Service<phoenix_msgs::srv::ProgramNios>::SharedPtr _program_nios_service;
 
@@ -97,6 +94,9 @@ private:
 
     /// パラメータが設定されたとき呼ばれるコールバックを保持する
     rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr _parameter_handler;
+    
+    /// セルフテストの管理
+    self_test::TestRunner _test_runner;
 
     /// 共有メモリー
     SharedMemory_t _shared_memory;

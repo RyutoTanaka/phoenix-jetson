@@ -1,27 +1,25 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 import socket
+import re
 
-hostname = socket.gethostname()
+namespace = re.sub("[^a-zA-Z0-9]", "_", socket.gethostname()) + "/phoenix"
 
 def generate_launch_description():
     return LaunchDescription([
         Node(
             package = 'phoenix',
-            namespace = hostname,
-            executable = 'stream',
-            name = 'phoenix_stream'
+            namespace = namespace,
+            executable = 'stream'
         ),
         Node(
             package = 'phoenix',
-            namespace = hostname,
-            executable = 'battery',
-            name = 'phoenix_battery'
+            namespace = namespace,
+            executable = 'battery'
         ),
         Node(
             package = 'phoenix',
-            namespace = hostname,
-            executable = 'command',
-            name = 'phoenix_command'
+            namespace = namespace,
+            executable = 'command'
         )
     ])
