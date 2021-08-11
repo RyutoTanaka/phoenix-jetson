@@ -106,7 +106,7 @@ CommandNode::CommandNode(const rclcpp::NodeOptions &options)
 
     // セルフテストを登録する
     _test_runner.setID(get_namespace());
-    _test_runner.add(DIAGNOSTICS_NAME_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
+    _test_runner.add(getHostName() + DIAGNOSTICS_NAME_SUFFIX_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
         doSelfTestFpga(diag);
     });
 }

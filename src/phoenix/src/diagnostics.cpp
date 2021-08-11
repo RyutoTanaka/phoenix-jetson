@@ -124,21 +124,25 @@ void createFpgaDiagnostics(const StreamDataStatus_t &status, diagnostic_msgs::ms
     }
 }
 
-std::string getRegularHostName(void) {
+std::string getHostName(void) {
 #ifndef _MSC_VER
     struct utsname buffer;
     if (uname(&buffer) < 0) {
         return {};
     }
-    std::string result = buffer.nodename;
+    return buffer.nodename;
 #else
     char buffer[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD length = sizeof(buffer);
     if (!GetComputerNameA(buffer, &length)) {
         return {};
     }
-    std::string result(buffer, length);
+    return std::string(buffer, length);
 #endif
+}
+
+std::string getRegularHostName(void) {
+    std::string result = getHostName();
     if (!result.empty()) {
         // アルファベットと数字以外の文字をアンダースコアに置換する
         for (char &c : result) {

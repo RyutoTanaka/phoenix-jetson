@@ -31,8 +31,8 @@ static constexpr char SERVICE_NAME_PROGRAM_NIOS[] = "program_nios";
 /// FPGAを書き換えるサービス名
 static constexpr char SERVICE_NAME_PROGRAM_FPGA[] = "program_fpga";
 
-/// FPGAの診断ステータスを配信するときの名前
-static constexpr char DIAGNOSTICS_NAME_FPGA[] = "FPGA";
+/// FPGAの診断ステータスを配信するときにコンポーネント名の後ろに付ける名前
+static constexpr char DIAGNOSTICS_NAME_SUFFIX_FPGA[] = "-FPGA";
 
 
 

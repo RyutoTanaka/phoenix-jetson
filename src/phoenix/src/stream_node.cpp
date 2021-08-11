@@ -57,7 +57,7 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
 
     // 診断ステータスの初期化を行う
     _diag_updater.setHardwareID(get_namespace());
-    _diag_updater.add(DIAGNOSTICS_NAME_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
+    _diag_updater.add(getHostName() + DIAGNOSTICS_NAME_SUFFIX_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
         createFpgaDiagnostics(_status, diag);
     });
 
