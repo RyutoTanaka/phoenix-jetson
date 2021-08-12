@@ -105,6 +105,7 @@ CommandNode::CommandNode(const rclcpp::NodeOptions &options)
         create_service<phoenix_msgs::srv::ProgramFpga>(SERVICE_NAME_PROGRAM_FPGA, std::bind(&CommandNode::programFpgaCallback, this, _1, _2, _3));
 
     // セルフテストを登録する
+    setDefaultHardwareId(get_namespace());
     _test_runner.setID(get_namespace());
     _test_runner.add(getHostName() + DIAGNOSTICS_NAME_SUFFIX_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
         doSelfTestFpga(diag);

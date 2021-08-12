@@ -56,6 +56,7 @@ StreamPublisherNode::StreamPublisherNode(const rclcpp::NodeOptions &options) : N
     _imu_publisher = create_publisher<sensor_msgs::msg::Imu>(TOPIC_NAME_IMU, QOS_DEPTH);
 
     // 診断ステータスの初期化を行う
+    setDefaultHardwareId(get_namespace());
     _diag_updater.setHardwareID(get_namespace());
     _diag_updater.add(getHostName() + DIAGNOSTICS_NAME_SUFFIX_FPGA, [this](diagnostic_msgs::msg::DiagnosticStatus &diag) {
         createFpgaDiagnostics(_status, diag);

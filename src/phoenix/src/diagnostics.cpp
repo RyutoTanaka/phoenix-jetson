@@ -13,6 +13,12 @@ extern "C" {
 
 namespace phoenix {
 
+static std::string _default_hardware_id;
+
+void setDefaultHardwareId(const std::string &hardware_id){
+    _default_hardware_id = hardware_id;
+}
+
 static const std::pair<uint32_t, const char *> ERROR_CAUSE_TABLE[] = {
     {ErrorCauseModuleSleep, "Module Sleep"},
     {ErrorCauseFpgaStop, "Fpga Stop"},
@@ -69,6 +75,10 @@ static inline std::string flagsToString(uint32_t flags, const std::pair<uint32_t
 void createFpgaDiagnostics(const StreamDataStatus_t &status, diagnostic_msgs::msg::DiagnosticStatus &diag) {
     const uint32_t error_flags = status.error_flags;
     const uint32_t fault_flags = status.fault_flags;
+
+    if (diag.hardware_id.empty()){
+        diag.hardware_id = _default_hardware_id;
+    }
 
     if ((error_flags == 0) && (fault_flags == 0)) {
         // エラーは起きていない
