@@ -3,14 +3,16 @@ from launch_ros.actions import Node
 import socket
 import re
 
-namespace = re.sub("[^a-zA-Z0-9]", "_", socket.gethostname()) + "/phoenix"
+base_namespace = "/" + re.sub("[^a-zA-Z0-9]", "_", socket.gethostname())
+namespace = base_namespace + "/phoenix"
 
 def generate_launch_description():
     return LaunchDescription([
         Node(
             package = 'phoenix',
             namespace = namespace,
-            executable = 'stream'
+            executable = 'stream',
+            remappings = [("/tf", base_namespace + "/tf")],
         ),
         Node(
             package = 'phoenix',

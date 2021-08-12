@@ -34,6 +34,15 @@ static constexpr char SERVICE_NAME_PROGRAM_FPGA[] = "program_fpga";
 /// FPGAの診断ステータスを配信するときにコンポーネント名の後ろに付ける名前
 static constexpr char DIAGNOSTICS_NAME_SUFFIX_FPGA[] = "-FPGA";
 
+/// オドメトリ座標系のフレームID
+static constexpr char FRAME_ID_ODOMETRY[] = "/odom";
+
+/// ベース座標系のフレームID
+static constexpr char FRAME_ID_BASE[] = "/base_link";
+
+/// IMU座標系のフレームID
+static constexpr char FRAME_ID_IMU[] = "/imu_link";
+
 
 
 namespace test {
@@ -94,6 +103,9 @@ static constexpr char NODE_NAME[] = "stream";
 
 /// UARTのデバイスパスのパラメータ名
 static constexpr char PARAM_NAME_DEVICE_PATH[] = "device_path";
+
+/// オドメトリとIMUの間引き回数のパラメータ名
+static constexpr char PARAM_NAME_DECIMATION[] = "decimation";
 
 } // namespace stream
 
