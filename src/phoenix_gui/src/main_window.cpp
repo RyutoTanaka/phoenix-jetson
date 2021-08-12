@@ -4,7 +4,6 @@
 #include "ui_main_window.h"
 #include "../../phoenix/include/phoenix.hpp"
 #include <QtCore/QDebug>
-#include <QtCore/QRandomGenerator>
 #include <QtCore/QSettings>
 #include <QtCore/QSysInfo>
 #include <QtCore/QTimer>
@@ -14,6 +13,7 @@
 #include <QtWidgets/QMessageBox>
 #include <algorithm>
 #include <chrono>
+#include <random>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // UIを生成する
@@ -83,6 +83,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(_Ui->stopLogButton, &QPushButton::clicked, this, &MainWindow::stopLogging);
     connect(_Ui->programNiosButton, &QPushButton::clicked, this, &MainWindow::programNios);
     connect(_Ui->programFpgaButton, &QPushButton::clicked, this, &MainWindow::programFpga);
+    connect(_Ui->selfTestButton, &QPushButton::clicked, this, &MainWindow::runSelfTest);
 
     // リストを更新する
     reloadNamespaceList();
@@ -179,8 +180,8 @@ void MainWindow::reloadNamespaceList(void) {
         exec.spin_once(std::chrono::milliseconds(1));
     } while ((std::chrono::system_clock::now() - start_time) < TIMEOUT);
 
-    // ノード名と名前空間名のリストを取得し、PHOENIX_NODE_PREFIXから始まるノード名を含む名前空間のリストを抽出する
-    // ただしGUI_NODE_NAME_PREFIXで始まる名前のノードは検索対象から除外する
+    // ノード名と名前空間名のリストを取得しphoenix::NAMESPACE_NAMEのサブ名前空間を持つ名前空間のリストを抽出する
+    const QString phoenix_sub_namespace = QString('/') + phoenix::NAMESPACE_NAME;
     QStringList namespace_list;
     namespace_list.append("");
     auto graph = _NetworkAwarenessNode->get_node_graph_interface();
@@ -189,8 +190,8 @@ void MainWindow::reloadNamespaceList(void) {
         if (namespace_list.contains(item.second.c_str())) {
             continue;
         }
-        QString node_name(item.first.c_str());
-        if (node_name.startsWith(PHOENIX_NODE_PREFIX) && !node_name.startsWith(GUI_NODE_NAME_PREFIX)) {
+        QString namespace_name(item.second.c_str());
+        if (namespace_name.endsWith(phoenix_sub_namespace)) {
             namespace_list.append(item.second.c_str());
         }
     }
@@ -215,47 +216,54 @@ void MainWindow::reloadNamespaceList(void) {
 }
 
 void MainWindow::connectToNodes(const QString &namespace_name) {
+    using namespace std::placeholders;
+
     // 既存のノードとスレッドを終了する
     quitNodeThread();
 
     if (namespace_name.isEmpty()) {
+        _namespace.clear();
+
         // 画面を初期化する
         _ImageViewer->setImage(nullptr);
         emit updateRequest();
         return;
     }
+    _namespace = namespace_name.toStdString();
 
     // '/'を付与する
-    QString namespace_prefix = namespace_name;
-    if (!namespace_prefix.endsWith('/')) {
-        namespace_prefix.append('/');
+    std::string prefix = _namespace;
+    if (prefix.back() != '/') {
+        prefix += '/';
     }
 
     // ノードとスレッドを作成する
     _NodeThread = new NodeThread(this, createNode());
     connect(_NodeThread, &NodeThread::finished, _NodeThread, &QObject::deleteLater);
 
+    // /diagnosticsトピックを受信するSubscriptionを作成する
+    _Subscribers.diagnostics = _NodeThread->node()->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
+        "/diagnostics", 10, [this](const std::shared_ptr<diagnostic_msgs::msg::DiagnosticArray> msg) {
+            for (const auto &diag : msg->status) {
+                if (diag.hardware_id == _namespace) {
+                    std::atomic_store(&_LastMessages.diagnostics, msg);
+                    break;
+                }
+            }
+        });
+
     // センサーデータを購読するときのQoSの設定
     const rclcpp::SensorDataQoS qos_sensor;
 
     // batteryトピックを受信するSubscriptionを作成する
-    QString battery_topic_name = namespace_prefix + phoenix::TOPIC_NAME_BATTERY;
     _Subscribers.battery = _NodeThread->node()->create_subscription<sensor_msgs::msg::BatteryState>(
-        battery_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<sensor_msgs::msg::BatteryState> msg) {
+        prefix + phoenix::TOPIC_NAME_BATTERY, qos_sensor, [this](const std::shared_ptr<sensor_msgs::msg::BatteryState> msg) {
             std::atomic_store(&_LastMessages.battery, msg);
         });
 
-    // stream_data_statusトピックを受信するSubscriptionを作成する
-    QString status_topic_name = namespace_prefix + phoenix::TOPIC_NAME_STATUS;
-    _Subscribers.status = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataStatus>(
-        status_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataStatus> msg) {
-            std::atomic_store(&_LastMessages.status, msg);
-        });
-
     // stream_data_adc2トピックを受信するSubscriptionを作成する
-    QString adc2_topic_name = namespace_prefix + phoenix::TOPIC_NAME_ADC2;
     _Subscribers.adc2 = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataAdc2>(
-        adc2_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> msg) {
+        prefix + phoenix::TOPIC_NAME_ADC2, qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> msg) {
             if (!_LastMessages.adc2) {
                 std::atomic_store(&_LastMessages.adc2, msg);
             }
@@ -268,9 +276,8 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
         });
 
     // stream_data_motionトピックを受信するSubscriptionを作成する
-    QString motion_topic_name = namespace_prefix + phoenix::TOPIC_NAME_MOTION;
     _Subscribers.motion = _NodeThread->node()->create_subscription<phoenix_msgs::msg::StreamDataMotion>(
-        motion_topic_name.toStdString(), qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> msg) {
+        prefix + phoenix::TOPIC_NAME_MOTION, qos_sensor, [this](const std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> msg) {
             std::atomic_store(&_LastMessages.motion, msg);
             std::shared_ptr<QFile> file = _LogFile;
             if (file) {
@@ -327,12 +334,10 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
                                                                                            });
 
     // cmd_velトピックを配信するPublisherを作成する
-    const QString velocity_topic_name = namespace_prefix + phoenix::TOPIC_NAME_COMMAND_VELOCITY;
-    _publishers.velocity = _NodeThread->node()->create_publisher<geometry_msgs::msg::Twist>(velocity_topic_name.toStdString(), 1);
+    _publishers.velocity = _NodeThread->node()->create_publisher<geometry_msgs::msg::Twist>(prefix + phoenix::TOPIC_NAME_COMMAND_VELOCITY, 1);
 
     // NiosII書き換えサービスを見つける
-    QString program_nios_service_name = namespace_prefix + phoenix::SERVICE_NAME_PROGRAM_NIOS;
-    _Clients.program_nios = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramNios>(program_nios_service_name.toStdString());
+    _Clients.program_nios = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramNios>(prefix + phoenix::SERVICE_NAME_PROGRAM_NIOS);
     if (_Clients.program_nios->wait_for_service(std::chrono::milliseconds(1000)) == false) {
         _Clients.program_nios.reset();
         _Ui->programNiosButton->setEnabled(false);
@@ -342,8 +347,7 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
     }
 
     // FPGA書き換えサービスを見つける
-    QString program_fpga_service_name = namespace_prefix + phoenix::SERVICE_NAME_PROGRAM_FPGA;
-    _Clients.program_fpga = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramFpga>(program_fpga_service_name.toStdString());
+    _Clients.program_fpga = _NodeThread->node()->create_client<phoenix_msgs::srv::ProgramFpga>(prefix + phoenix::SERVICE_NAME_PROGRAM_FPGA);
     if (_Clients.program_fpga->wait_for_service(std::chrono::milliseconds(1000)) == false) {
         _Clients.program_fpga.reset();
         _Ui->programFpgaButton->setEnabled(false);
@@ -352,12 +356,30 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
         _Ui->programFpgaButton->setEnabled(true);
     }
 
+    // セルフテストサービスを見つける
+    _Clients.self_test = _NodeThread->node()->create_client<diagnostic_msgs::srv::SelfTest>(prefix + "self_test");
+    if (_Clients.self_test->wait_for_service(std::chrono::milliseconds(1000)) == false) {
+        _Clients.self_test.reset();
+        _Ui->selfTestButton->setEnabled(false);
+    }
+    else {
+        _Ui->selfTestButton->setEnabled(true);
+    }
+
     // スレッドを実行
     _NodeThread->start();
 }
 
 void MainWindow::updateTelemertyTreeItems(void) {
-    static constexpr int COL = 1;
+    if (_LastMessages.diagnostics) {
+        auto msg = std::atomic_exchange(&_LastMessages.diagnostics, std::shared_ptr<diagnostic_msgs::msg::DiagnosticArray>());
+        for (const auto &diag : msg->status) {
+            if (diag.hardware_id == _namespace) {
+                updateDiagnosticsInformation(_TreeItems.diag, msg->header, diag);
+                break;
+            }
+        }
+    }
     if (_LastMessages.battery) {
         // auto msg = std::atomic_exchange(&_LastMessages.battery, std::shared_ptr<sensor_msgs::msg::BatteryState>());
         auto &msg = _LastMessages.battery;
@@ -365,21 +387,6 @@ void MainWindow::updateTelemertyTreeItems(void) {
         _TreeItems.battery.voltage->setText(COL, QString::number(msg->voltage, 'f', 3));
         _TreeItems.battery.current->setText(COL, QString::number(msg->current, 'f', 3));
         _TreeItems.battery.temperature->setText(COL, QString::number(msg->temperature, 'f', 3));
-    }
-    if (_LastMessages.status) {
-        static const QStringList dc48v_text_list = {"UV", "OV"};
-        static const QStringList motor_text_list = {"1", "2", "3", "4", "5"};
-        auto msg = std::atomic_exchange(&_LastMessages.status, std::shared_ptr<phoenix_msgs::msg::StreamDataStatus>());
-        _TreeItems.error.module_stop->setText(COL, boolToString(msg->error_module_sleep));
-        _TreeItems.error.fpga_stop->setText(COL, boolToString(msg->error_fpga_stop));
-        _TreeItems.error.dc48v->setText(COL, boolListToString(dc48v_text_list, msg->error_dc48v_uv, msg->error_dc48v_ov));
-        _TreeItems.error.motor_oc->setText(COL, boolArrayToString(motor_text_list, msg->error_motor_oc));
-        _TreeItems.error.hall_sensor->setText(COL, boolArrayToString(motor_text_list, msg->error_motor_hall_sensor));
-        _TreeItems.fault.adc2_timeout->setText(COL, boolToString(msg->fault_adc2_timeout));
-        _TreeItems.fault.imu_timeout->setText(COL, boolToString(msg->fault_imu_timeout));
-        _TreeItems.fault.motor_oc->setText(COL, boolArrayToString(motor_text_list, msg->fault_motor_oc));
-        _TreeItems.fault.motor_ot->setText(COL, boolArrayToString(motor_text_list, msg->fault_motor_ot));
-        _TreeItems.fault.load_switch->setText(COL, boolArrayToString(motor_text_list, msg->fault_motor_load_switch));
     }
     if (_LastMessages.adc2) {
         // auto msg = std::atomic_exchange(&_LastMessages.adc2, std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2>());
@@ -414,20 +421,13 @@ void MainWindow::updateTelemertyTreeItems(void) {
 }
 
 void MainWindow::generateTelemetryTreeItems(void) {
-    // stream_data_statusの内容を表示するアイテムを作成する
-    auto status_top = new QTreeWidgetItem(_Ui->telemetryTree, {"Status"});
-    auto error_flags = new QTreeWidgetItem(status_top, {"Error Flags"});
-    _TreeItems.error.module_stop = new QTreeWidgetItem(error_flags, {"Module Stop"});
-    _TreeItems.error.fpga_stop = new QTreeWidgetItem(error_flags, {"FPGA Stop"});
-    _TreeItems.error.dc48v = new QTreeWidgetItem(error_flags, {"DC48V"});
-    _TreeItems.error.motor_oc = new QTreeWidgetItem(error_flags, {"Motor OC"});
-    _TreeItems.error.hall_sensor = new QTreeWidgetItem(error_flags, {"Hall Sensor"});
-    auto fault_flags = new QTreeWidgetItem(status_top, {"Fault Flags"});
-    _TreeItems.fault.adc2_timeout = new QTreeWidgetItem(fault_flags, {"ADC2 Timeout"});
-    _TreeItems.fault.imu_timeout = new QTreeWidgetItem(fault_flags, {"IMU Timeout"});
-    _TreeItems.fault.motor_oc = new QTreeWidgetItem(fault_flags, {"Motor OC"});
-    _TreeItems.fault.motor_ot = new QTreeWidgetItem(fault_flags, {"Motor OT"});
-    _TreeItems.fault.load_switch = new QTreeWidgetItem(fault_flags, {"Load Switch"});
+    // diagnosticsの内容を表示するアイテムを作成する
+    auto diag_top = new QTreeWidgetItem(_Ui->telemetryTree, {"Diagnostics"});
+    _TreeItems.diag.timestamp = new QTreeWidgetItem(diag_top, {"Timestamp", "", "s"});
+    _TreeItems.diag.level = new QTreeWidgetItem(diag_top, {"Level"});
+    _TreeItems.diag.message = new QTreeWidgetItem(diag_top, {"Message"});
+    _TreeItems.diag.error = new QTreeWidgetItem(diag_top, {"Error"});
+    _TreeItems.diag.fault = new QTreeWidgetItem(diag_top, {"Fault"});
 
     // batteryの内容を表示するアイテムを作成する
     auto battery_top = new QTreeWidgetItem(_Ui->telemetryTree, {"Battery"});
@@ -532,19 +532,21 @@ void MainWindow::quitNodeThread(void) {
     if (_NodeThread != nullptr) {
         // Subscriptionを破棄する
         _Subscribers.battery.reset();
-        _Subscribers.status.reset();
         _Subscribers.adc2.reset();
         _Subscribers.motion.reset();
         _Subscribers.image.reset();
+        _Subscribers.diagnostics.reset();
 
         // Publisherを破棄する
         _publishers.velocity.reset();
 
         // Clientsを破棄する
-        _Clients.program_nios.reset();
-        _Clients.program_fpga.reset();
         _Ui->programNiosButton->setEnabled(false);
         _Ui->programFpgaButton->setEnabled(false);
+        _Ui->selfTestButton->setEnabled(false);
+        _Clients.program_nios.reset();
+        _Clients.program_fpga.reset();
+        _Clients.self_test.reset();
 
         // スレッドを終了する
         // deleteはdeleteLater()スロットにより行われるのでここでする必要はない
@@ -580,6 +582,8 @@ void MainWindow::sendCommand(void) {
 }
 
 void MainWindow::programNios(void) {
+    static const QString TITLE("Program NIOS");
+
     QString path = QFileDialog::getOpenFileName(this, "Open HEX File", "", "Intel HEX (*.hex)");
     if (path.isEmpty()) {
         return;
@@ -615,7 +619,7 @@ void MainWindow::programNios(void) {
     } while (0 < i);
     ihex_rs_free(recored_set);
     if (err || (copied_bytes != request->program.size())) {
-        QMessageBox::warning(this, "Program NIOS", "An error occured while loading HEX file");
+        QMessageBox::critical(this, TITLE, "An error occured while loading HEX file");
         return;
     }
 
@@ -624,17 +628,19 @@ void MainWindow::programNios(void) {
     result.wait();
     auto response = result.get();
     if (!response) {
-        QMessageBox::warning(this, "Program NIOS", "Service didn't respond");
+        QMessageBox::critical(this, TITLE, "Service didn't respond");
     }
     else if (!response->succeeded) {
-        QMessageBox::warning(this, "Program NIOS", "An error occured while programming memory");
+        QMessageBox::critical(this, TITLE, "An error occured while programming memory");
     }
     else {
-        QMessageBox::information(this, "Program NIOS", "Finished");
+        QMessageBox::information(this, TITLE, "Finished");
     }
 }
 
 void MainWindow::programFpga(void) {
+    static const QString TITLE("Program FPGA");
+
     QString path = QFileDialog::getOpenFileName(this, "Open RPD File", "", "Raw Programming Data File (*.rpd)");
     if (path.isEmpty()) {
         return;
@@ -644,13 +650,13 @@ void MainWindow::programFpga(void) {
     auto request = std::make_shared<phoenix_msgs::srv::ProgramFpga::Request>();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::warning(this, "Program FPGA", "Failed to load file");
+        QMessageBox::critical(this, TITLE, "Failed to load file");
         return;
     }
     QByteArray binary = file.readAll();
     file.close();
     if (request->bitstream.size() < (size_t)binary.size()) {
-        QMessageBox::warning(this, "Program FPGA", QString("Size of the RPD file must be less than %1 bytes").arg(request->bitstream.size()));
+        QMessageBox::critical(this, TITLE, QString("Size of the RPD file must be less than %1 bytes").arg(request->bitstream.size()));
         return;
     }
     memcpy(request->bitstream.data(), binary.constData(), binary.size());
@@ -661,20 +667,101 @@ void MainWindow::programFpga(void) {
     result.wait();
     auto response = result.get();
     if (!response) {
-        QMessageBox::warning(this, "Program FPGA", "Service didn't respond");
+        QMessageBox::critical(this, TITLE, "Service didn't respond");
     }
     else if (!response->succeeded) {
-        QMessageBox::warning(this, "Program FPGA", "An error occured while programming bitstream");
+        QMessageBox::critical(this, TITLE, "An error occured while programming bitstream");
     }
     else {
-        QMessageBox::information(this, "Program FPGA", "Finished");
+        QMessageBox::information(this, TITLE, "Finished");
+    }
+}
+
+void MainWindow::runSelfTest(void) {
+    static const QString TITLE("Self Test");
+    auto request = std::make_shared<diagnostic_msgs::srv::SelfTest::Request>();
+    auto result = _Clients.self_test->async_send_request(request);
+    result.wait();
+    auto response = result.get();
+    if (!response) {
+        QMessageBox::critical(this, TITLE, "Service didn't respond");
+    }
+
+    // 結果を表示する。
+    std::stringstream ss;
+    ss << (response->passed ? "passed:" : "failed:");
+    auto it = std::find_if(response->status.begin(), response->status.end(), [&](const diagnostic_msgs::msg::DiagnosticStatus &diag) {
+        return diag.hardware_id == _namespace;
+    });
+    if (it != response->status.end()) {
+        ss << std::endl << "  name: " << it->name;
+        ss << std::endl << "  message: " << it->message;
+        if (!it->values.empty()) {
+            ss << std::endl << "  values:";
+            for (auto &item : it->values) {
+                ss << std::endl << "    " << item.key << ": '" << item.value << '\'';
+            }
+        }
+    }
+    else {
+        ss << " Unknown detail";
+    }
+    if (response->passed) {
+        QMessageBox::information(this, TITLE, QString::fromStdString(ss.str()));
+    }
+    else {
+        QMessageBox::critical(this, TITLE, QString::fromStdString(ss.str()));
+    }
+}
+
+void MainWindow::updateDiagnosticsInformation(TreeItems_t::DiagnosticItems_t &items, const std_msgs::msg::Header &header,
+                                              const diagnostic_msgs::msg::DiagnosticStatus &status) {
+    // timestampをミリ秒単位で表示する
+    items.timestamp->setText(COL, QString("%1.%2").arg(header.stamp.sec).arg(header.stamp.nanosec / 1000000, 3, 10, QLatin1Char('0')));
+
+    // messageを表示する
+    items.message->setText(COL, QString::fromStdString(status.message));
+
+    // levelを表示する
+    static const std::unordered_map<decltype(status.level), QString> level_map = {
+        {diagnostic_msgs::msg::DiagnosticStatus::OK, "OK"},
+        {diagnostic_msgs::msg::DiagnosticStatus::WARN, "WARN"},
+        {diagnostic_msgs::msg::DiagnosticStatus::ERROR, "ERROR"},
+        {diagnostic_msgs::msg::DiagnosticStatus::STALE, "STALE"},
+    };
+    auto it = level_map.find(status.level);
+    if (it != level_map.end()) {
+        items.level->setText(COL, it->second);
+    }
+    else {
+        items.level->setText(COL, QString::number(status.level));
+    }
+
+    // エラーフラグとフォルトフラグを表示する
+    static const QString none("none");
+    bool error_occured = false, fault_occured = false;
+    for (auto &item : status.values) {
+        if (!error_occured && (item.key == "Error Flags")) {
+            items.error->setText(COL, QString::fromStdString(item.value));
+            error_occured = true;
+        }
+        else if (!fault_occured && (item.key == "Fault Flags")) {
+            items.fault->setText(COL, QString::fromStdString(item.value));
+            fault_occured = true;
+        }
+    }
+    if (!error_occured) {
+        items.error->setText(COL, none);
+    }
+    if (!fault_occured) {
+        items.fault->setText(COL, none);
     }
 }
 
 std::shared_ptr<rclcpp::Node> MainWindow::createNode(void) {
     // ノードを作成する
     // ノード名の被りを防止するため末尾に乱数を付与する
-    QString node_name = QString("%1%2").arg(GUI_NODE_NAME_PREFIX).arg(QRandomGenerator::global()->generate(), 8, 16, QLatin1Char('0'));
+    QString node_name = QString("%1%2").arg(GUI_NODE_NAME_PREFIX).arg(std::random_device()(), 8, 16, QLatin1Char('0'));
     QString namespace_name = QSysInfo::machineHostName();
     return std::make_shared<rclcpp::Node>(node_name.toStdString(), namespace_name.toStdString());
 }

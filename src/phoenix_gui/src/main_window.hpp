@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#define NOGDI
 #include "gamepad_thread.hpp"
 #include "image_viewer.hpp"
 #include "node_thread.hpp"
@@ -11,10 +12,11 @@
 #include <QtWidgets/QTreeWidgetItem>
 #include <phoenix_msgs/msg/stream_data_adc2.hpp>
 #include <phoenix_msgs/msg/stream_data_motion.hpp>
-#include <phoenix_msgs/msg/stream_data_status.hpp>
 #include <phoenix_msgs/srv/program_fpga.hpp>
 #include <phoenix_msgs/srv/program_nios.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
+#include <diagnostic_msgs/srv/self_test.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -68,6 +70,37 @@ private:
 
     Q_SLOT void programFpga(void);
 
+    Q_SLOT void runSelfTest(void);
+
+    /// telemetryTreeに表示する項目の定義
+    struct TreeItems_t {
+        struct DiagnosticItems_t {
+            QTreeWidgetItem *timestamp, *level, *message, *error, *fault;
+        } diag;
+        struct Battery_t {
+            QTreeWidgetItem *present, *voltage, *current, *temperature;
+        } battery;
+        struct Adc2_t {
+            QTreeWidgetItem *dc48v_voltage, *dribble_voltage, *dribble_current;
+        } adc2;
+        struct Motion_t {
+            QTreeWidgetItem *accelerometer[3], *gyroscope[3];
+            QTreeWidgetItem *wheel_velocity[4], *wheel_current_d[4], *wheel_current_q[4];
+        } motion;
+        struct Control_t {
+            QTreeWidgetItem *perf_counter, *wheel_velocity_ref[4], *wheel_current_ref[4], *wheel_current_limit[4], *machine_velocity[3], *slip_flags;
+        } control;
+    };
+
+    /**
+     * @brief telemetryTreeの診断ステータスを更新する
+     * @param items ツリーの項目
+     * @param header ヘッダー
+     * @param status 診断ステータス
+     */
+    static void updateDiagnosticsInformation(TreeItems_t::DiagnosticItems_t &items, const std_msgs::msg::Header &header,
+                                             const diagnostic_msgs::msg::DiagnosticStatus &status);
+
     static std::shared_ptr<rclcpp::Node> createNode(void);
 
     void quitGamepadThread(void);
@@ -85,30 +118,8 @@ private:
         double velocity_scale_omega; // degree
     } _Pad;
 
-
-
     /// telemetryTreeに表示する項目
-    struct TreeItems_t {
-        struct Error_t {
-            QTreeWidgetItem *module_stop, *fpga_stop, *dc48v, *motor_oc, *hall_sensor;
-        } error;
-        struct Fault_t {
-            QTreeWidgetItem *adc2_timeout, *imu_timeout, *motor_ot, *motor_oc, *load_switch;
-        } fault;
-        struct Battery_t {
-            QTreeWidgetItem *present, *voltage, *current, *temperature;
-        } battery;
-        struct Adc2_t {
-            QTreeWidgetItem *dc48v_voltage, *dribble_voltage, *dribble_current;
-        } adc2;
-        struct Motion_t {
-            QTreeWidgetItem *accelerometer[3], *gyroscope[3];
-            QTreeWidgetItem *wheel_velocity[4], *wheel_current_d[4], *wheel_current_q[4];
-        } motion;
-        struct Control_t {
-            QTreeWidgetItem *perf_counter, *wheel_velocity_ref[4], *wheel_current_ref[4], *wheel_current_limit[4], *machine_velocity[3], *slip_flags;
-        } control;
-    } _TreeItems;
+    TreeItems_t _TreeItems;
 
     /// ゲームパッド入力を処理するスレッド
     GamepadThread *_GamepadThread = nullptr;
@@ -125,13 +136,16 @@ private:
     /// ノードの処理を行うスレッド
     NodeThread *_NodeThread = nullptr;
 
+    /// 接続中のノードの属する名前空間
+    std::string _namespace;
+
     // 作成したSubscriptionを保持する
     struct Subscriptions_t {
         rclcpp::Subscription<sensor_msgs::msg::BatteryState>::SharedPtr battery;
-        rclcpp::Subscription<phoenix_msgs::msg::StreamDataStatus>::SharedPtr status;
         rclcpp::Subscription<phoenix_msgs::msg::StreamDataAdc2>::SharedPtr adc2;
         rclcpp::Subscription<phoenix_msgs::msg::StreamDataMotion>::SharedPtr motion;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image;
+        rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics;
     } _Subscribers;
 
     /// 作成したPublisherを保持する
@@ -141,8 +155,8 @@ private:
 
     /// 受信した最後のトピックを保持する
     struct LastMessages_t {
+        std::shared_ptr<diagnostic_msgs::msg::DiagnosticArray> diagnostics;
         std::shared_ptr<sensor_msgs::msg::BatteryState> battery;
-        std::shared_ptr<phoenix_msgs::msg::StreamDataStatus> status;
         std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2> adc2;
         std::shared_ptr<phoenix_msgs::msg::StreamDataMotion> motion;
     } _LastMessages;
@@ -150,16 +164,17 @@ private:
     struct Clients_t {
         rclcpp::Client<phoenix_msgs::srv::ProgramNios>::SharedPtr program_nios;
         rclcpp::Client<phoenix_msgs::srv::ProgramFpga>::SharedPtr program_fpga;
+        rclcpp::Client<diagnostic_msgs::srv::SelfTest>::SharedPtr self_test;
     } _Clients;
+
+    /// telemetryTreeで値を表示する列
+    static constexpr int COL = 1;
 
     /// GUIのノード名の頭に付ける文字列
     static constexpr char GUI_NODE_NAME_PREFIX[] = "phoenix_gui_";
 
-    /// Phoenixのノード名の頭に付ける文字列
-    static constexpr char PHOENIX_NODE_PREFIX[] = "phoenix_";
-
     /// 設定ファイルの組織名
-    static constexpr char SETTINGS_ORGANIZATION[] = "KIKS";
+    static constexpr char SETTINGS_ORGANIZATION[] = "RoboCup";
 
     /// 設定ファイルのアプリケーション名
     static constexpr char SETTINGS_APPLICATION[] = "PhoenixGUI";

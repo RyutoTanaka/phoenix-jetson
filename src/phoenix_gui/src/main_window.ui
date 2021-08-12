@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Phoenix GUI</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -246,6 +246,16 @@
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QPushButton" name="selfTestButton">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>Self Test</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </item>
         </layout>
@@ -261,7 +271,7 @@
             <bool>false</bool>
            </property>
            <property name="text">
-            <string>Program Nios...</string>
+            <string>Program NIOS II...</string>
            </property>
           </widget>
          </item>
@@ -271,7 +281,7 @@
             <bool>false</bool>
            </property>
            <property name="text">
-            <string>Program Fpga...</string>
+            <string>Program FPGA...</string>
            </property>
           </widget>
          </item>

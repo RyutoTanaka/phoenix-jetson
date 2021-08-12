@@ -23,7 +23,6 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(
   ${PROJECT_NAME}
   msg/StreamDataAdc2.msg
-  msg/StreamDataStatus.msg
   msg/StreamDataMotion.msg
   srv/ProgramNios.srv
   srv/ProgramFpga.srv
