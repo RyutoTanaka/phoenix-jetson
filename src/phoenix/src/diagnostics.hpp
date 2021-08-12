@@ -6,6 +6,12 @@
 namespace phoenix {
 
 /**
+ * @brief デフォルトのハードウェアIDを設定する
+ * @param hardware_id ハードウェアID
+ */
+void setDefaultHardwareId(const std::string &hardware_id);
+
+/**
  * @brief FPGAの診断ステータスを作成する。
  * 最後に受信したステータスを元に診断ステータスを作成する。
  * @param diag 診断ステータス
