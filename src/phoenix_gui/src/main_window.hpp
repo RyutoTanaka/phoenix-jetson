@@ -84,11 +84,11 @@ private:
             QTreeWidgetItem *dc48v_voltage, *dribble_voltage, *dribble_current;
         } adc2;
         struct Motion_t {
-            QTreeWidgetItem *accelerometer[3], *gyroscope[3];
+            QTreeWidgetItem *accelerometer[3], *gyroscope[3], *gravity[3], *body_acceleration[3], *body_velocity[3];
             QTreeWidgetItem *wheel_velocity[4], *wheel_current_d[4], *wheel_current_q[4];
         } motion;
         struct Control_t {
-            QTreeWidgetItem *perf_counter, *wheel_velocity_ref[4], *wheel_current_ref[4], *wheel_current_limit[4], *machine_velocity[3], *slip_flags;
+            QTreeWidgetItem *perf_counter, *wheel_current_ref[4], *body_ref_accel_unlimit[4], *body_ref_accel[4], *rotation_torque, *omega_weight;
         } control;
     };
 

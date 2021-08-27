@@ -289,6 +289,21 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
                 float battery_current = battery_msg ? -battery_msg->current : 0.0f;
                 float dc48v_voltage = adc2_msg ? adc2_msg->dc48v_voltage : 0.0f;
                 stream << (0.001 * _LogFrameNumber) << sep;
+                stream << msg->accelerometer[0] << sep;
+                stream << msg->accelerometer[1] << sep;
+                stream << msg->accelerometer[2] << sep;
+                stream << msg->gyroscope[0] << sep;
+                stream << msg->gyroscope[1] << sep;
+                stream << msg->gyroscope[2] << sep;
+                stream << msg->gravity[0] << sep;
+                stream << msg->gravity[1] << sep;
+                stream << msg->gravity[2] << sep;
+                stream << msg->body_acceleration[0] << sep;
+                stream << msg->body_acceleration[1] << sep;
+                stream << msg->body_acceleration[2] << sep;
+                stream << msg->body_velocity[0] << sep;
+                stream << msg->body_velocity[1] << sep;
+                stream << msg->body_velocity[2] << sep;
                 stream << msg->wheel_velocity_meas[0] << sep;
                 stream << msg->wheel_velocity_meas[1] << sep;
                 stream << msg->wheel_velocity_meas[2] << sep;
@@ -297,28 +312,20 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
                 stream << msg->wheel_current_meas_q[1] << sep;
                 stream << msg->wheel_current_meas_q[2] << sep;
                 stream << msg->wheel_current_meas_q[3] << sep;
-                stream << msg->wheel_velocity_ref[0] << sep;
-                stream << msg->wheel_velocity_ref[1] << sep;
-                stream << msg->wheel_velocity_ref[2] << sep;
-                stream << msg->wheel_velocity_ref[3] << sep;
                 stream << msg->wheel_current_ref[0] << sep;
                 stream << msg->wheel_current_ref[1] << sep;
                 stream << msg->wheel_current_ref[2] << sep;
                 stream << msg->wheel_current_ref[3] << sep;
-                stream << msg->wheel_current_limit[0] << sep;
-                stream << msg->wheel_current_limit[1] << sep;
-                stream << msg->wheel_current_limit[2] << sep;
-                stream << msg->wheel_current_limit[3] << sep;
-                stream << msg->machine_velocity[0] << sep;
-                stream << msg->machine_velocity[1] << sep;
-                stream << msg->machine_velocity[2] << sep;
-                stream << msg->slip_flags << sep;
-                stream << msg->accelerometer[0] << sep;
-                stream << msg->accelerometer[1] << sep;
-                stream << msg->accelerometer[2] << sep;
-                stream << msg->gyroscope[0] << sep;
-                stream << msg->gyroscope[1] << sep;
-                stream << msg->gyroscope[2] << sep;
+                stream << msg->body_ref_accel_unlimit[0] << sep;
+                stream << msg->body_ref_accel_unlimit[1] << sep;
+                stream << msg->body_ref_accel_unlimit[2] << sep;
+                stream << msg->body_ref_accel_unlimit[3] << sep;
+                stream << msg->body_ref_accel[0] << sep;
+                stream << msg->body_ref_accel[1] << sep;
+                stream << msg->body_ref_accel[2] << sep;
+                stream << msg->body_ref_accel[3] << sep;
+                stream << msg->rotation_torque << sep;
+                stream << msg->omega_weight << sep;
                 stream << dc48v_voltage << sep;
                 stream << battery_voltage << sep;
                 stream << battery_current << Qt::endl;
@@ -382,7 +389,7 @@ void MainWindow::updateTelemertyTreeItems(void) {
     }
     if (_LastMessages.battery) {
         // auto msg = std::atomic_exchange(&_LastMessages.battery, std::shared_ptr<sensor_msgs::msg::BatteryState>());
-        auto &msg = _LastMessages.battery;
+        auto msg = _LastMessages.battery;
         _TreeItems.battery.present->setText(COL, boolToString(msg->present));
         _TreeItems.battery.voltage->setText(COL, QString::number(msg->voltage, 'f', 3));
         _TreeItems.battery.current->setText(COL, QString::number(msg->current, 'f', 3));
@@ -390,17 +397,20 @@ void MainWindow::updateTelemertyTreeItems(void) {
     }
     if (_LastMessages.adc2) {
         // auto msg = std::atomic_exchange(&_LastMessages.adc2, std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2>());
-        auto &msg = _LastMessages.adc2;
+        auto msg = _LastMessages.adc2;
         _TreeItems.adc2.dc48v_voltage->setText(COL, QString::number(msg->dc48v_voltage, 'f', 3));
         _TreeItems.adc2.dribble_voltage->setText(COL, QString::number(msg->dribble_voltage, 'f', 3));
         _TreeItems.adc2.dribble_current->setText(COL, QString::number(msg->dribble_current, 'f', 3));
     }
     if (_LastMessages.motion) {
         // auto msg = std::atomic_exchange(&_LastMessages.motion, std::shared_ptr<phoenix_msgs::msg::StreamDataMotion>());
-        auto &msg = _LastMessages.motion;
+        auto msg = _LastMessages.motion;
         for (int index = 0; index < 3; index++) {
             _TreeItems.motion.accelerometer[index]->setText(COL, QString::number(msg->accelerometer[index], 'f', 3));
             _TreeItems.motion.gyroscope[index]->setText(COL, QString::number(msg->gyroscope[index], 'f', 3));
+            _TreeItems.motion.gravity[index]->setText(COL, QString::number(msg->gravity[index], 'f', 3));
+            _TreeItems.motion.body_acceleration[index]->setText(COL, QString::number(msg->body_acceleration[index], 'f', 3));
+            _TreeItems.motion.body_velocity[index]->setText(COL, QString::number(msg->body_velocity[index], 'f', 3));
         }
         for (int index = 0; index < 4; index++) {
             _TreeItems.motion.wheel_velocity[index]->setText(COL, QString::number(msg->wheel_velocity_meas[index], 'f', 3));
@@ -408,14 +418,12 @@ void MainWindow::updateTelemertyTreeItems(void) {
             _TreeItems.motion.wheel_current_q[index]->setText(COL, QString::number(msg->wheel_current_meas_q[index], 'f', 3));
         }
         for (int index = 0; index < 4; index++) {
-            _TreeItems.control.wheel_velocity_ref[index]->setText(COL, QString::number(msg->wheel_velocity_ref[index], 'f', 3));
             _TreeItems.control.wheel_current_ref[index]->setText(COL, QString::number(msg->wheel_current_ref[index], 'f', 3));
-            _TreeItems.control.wheel_current_limit[index]->setText(COL, QString::number(msg->wheel_current_limit[index], 'f', 4));
+            _TreeItems.control.body_ref_accel_unlimit[index]->setText(COL, QString::number(msg->body_ref_accel_unlimit[index], 'f', 3));
+            _TreeItems.control.body_ref_accel[index]->setText(COL, QString::number(msg->body_ref_accel[index], 'f', 3));
         }
-        for (int index = 0; index < 3; index++) {
-            _TreeItems.control.machine_velocity[index]->setText(COL, QString::number(msg->machine_velocity[index], 'f', 3));
-        }
-        _TreeItems.control.slip_flags->setText(COL, QString::number(msg->slip_flags, 'f', 3));
+        _TreeItems.control.rotation_torque->setText(COL, QString::number(msg->rotation_torque, 'f', 3));
+        _TreeItems.control.omega_weight->setText(COL, QString::number(msg->omega_weight, 'f', 3));
         _TreeItems.control.perf_counter->setText(COL, QString::number(msg->performance_counter));
     }
 }
@@ -450,6 +458,15 @@ void MainWindow::generateTelemetryTreeItems(void) {
     _TreeItems.motion.gyroscope[0] = new QTreeWidgetItem(motion_top, {"Gyroscope X", "", "rad/s"});
     _TreeItems.motion.gyroscope[1] = new QTreeWidgetItem(motion_top, {"Gyroscope Y", "", "rad/s"});
     _TreeItems.motion.gyroscope[2] = new QTreeWidgetItem(motion_top, {"Gyroscope Z", "", "rad/s"});
+    _TreeItems.motion.gravity[0] = new QTreeWidgetItem(motion_top, {"Gravity X", "", u8"m/s\u00B2"});
+    _TreeItems.motion.gravity[1] = new QTreeWidgetItem(motion_top, {"Gravity Y", "", u8"m/s\u00B2"});
+    _TreeItems.motion.gravity[2] = new QTreeWidgetItem(motion_top, {"Gravity Z", "", u8"m/s\u00B2"});
+    _TreeItems.motion.body_acceleration[0] = new QTreeWidgetItem(motion_top, {"Body Acceleration X", "", u8"m/s\u00B2"});
+    _TreeItems.motion.body_acceleration[1] = new QTreeWidgetItem(motion_top, {"Body Acceleration Y", "", u8"m/s\u00B2"});
+    _TreeItems.motion.body_acceleration[2] = new QTreeWidgetItem(motion_top, {"Body Acceleration Z", "", u8"m/s\u00B2"});
+    _TreeItems.motion.body_velocity[0] = new QTreeWidgetItem(motion_top, {"Body Velocity X", "", "m/s"});
+    _TreeItems.motion.body_velocity[1] = new QTreeWidgetItem(motion_top, {"Body Velocity Y", "", "m/s"});
+    _TreeItems.motion.body_velocity[2] = new QTreeWidgetItem(motion_top, {u8"Body Velocity \u03C9", "", "rad/s"});
     _TreeItems.motion.wheel_velocity[0] = new QTreeWidgetItem(motion_top, {"Wheel 1 Velocity", "", "m/s"});
     _TreeItems.motion.wheel_velocity[1] = new QTreeWidgetItem(motion_top, {"Wheel 2 Velocity", "", "m/s"});
     _TreeItems.motion.wheel_velocity[2] = new QTreeWidgetItem(motion_top, {"Wheel 3 Velocity", "", "m/s"});
@@ -466,22 +483,20 @@ void MainWindow::generateTelemetryTreeItems(void) {
     // stream_data_controlの内容を表示するアイテムを作成する
     auto control_top = new QTreeWidgetItem(_Ui->telemetryTree, {"Control"});
     _TreeItems.control.perf_counter = new QTreeWidgetItem(control_top, {"Performance Counter", "", "Cycles"});
-    _TreeItems.control.wheel_velocity_ref[0] = new QTreeWidgetItem(control_top, {"Wheel 1 Velocity Ref", "", "m/s"});
-    _TreeItems.control.wheel_velocity_ref[1] = new QTreeWidgetItem(control_top, {"Wheel 2 Velocity Ref", "", "m/s"});
-    _TreeItems.control.wheel_velocity_ref[2] = new QTreeWidgetItem(control_top, {"Wheel 3 Velocity Ref", "", "m/s"});
-    _TreeItems.control.wheel_velocity_ref[3] = new QTreeWidgetItem(control_top, {"Wheel 4 Velocity Ref", "", "m/s"});
     _TreeItems.control.wheel_current_ref[0] = new QTreeWidgetItem(control_top, {"Wheel 1 Current Ref", "", "A"});
     _TreeItems.control.wheel_current_ref[1] = new QTreeWidgetItem(control_top, {"Wheel 2 Current Ref", "", "A"});
     _TreeItems.control.wheel_current_ref[2] = new QTreeWidgetItem(control_top, {"Wheel 3 Current Ref", "", "A"});
     _TreeItems.control.wheel_current_ref[3] = new QTreeWidgetItem(control_top, {"Wheel 4 Current Ref", "", "A"});
-    _TreeItems.control.wheel_current_limit[0] = new QTreeWidgetItem(control_top, {"Wheel 1 Current Limit", "", "A"});
-    _TreeItems.control.wheel_current_limit[1] = new QTreeWidgetItem(control_top, {"Wheel 2 Current Limit", "", "A"});
-    _TreeItems.control.wheel_current_limit[2] = new QTreeWidgetItem(control_top, {"Wheel 3 Current Limit", "", "A"});
-    _TreeItems.control.wheel_current_limit[3] = new QTreeWidgetItem(control_top, {"Wheel 4 Current Limit", "", "A"});
-    _TreeItems.control.machine_velocity[0] = new QTreeWidgetItem(control_top, {"Machine Velocity X", "", "m/s"});
-    _TreeItems.control.machine_velocity[1] = new QTreeWidgetItem(control_top, {"Machine Velocity Y", "", "m/s"});
-    _TreeItems.control.machine_velocity[2] = new QTreeWidgetItem(control_top, {u8"Machine Velocity \u03C9", "", "rad/s"});
-    _TreeItems.control.slip_flags = new QTreeWidgetItem(control_top, {"Slip Flags", "", ""});
+    _TreeItems.control.body_ref_accel_unlimit[0] = new QTreeWidgetItem(control_top, {"Unlimit Ref Acceleration X", "", u8"m/s\u00B2"});
+    _TreeItems.control.body_ref_accel_unlimit[1] = new QTreeWidgetItem(control_top, {"Unlimit Ref Acceleration Y", "", u8"m/s\u00B2"});
+    _TreeItems.control.body_ref_accel_unlimit[2] = new QTreeWidgetItem(control_top, {u8"Unlimit Ref Acceleration \u03C9", "", u8"rad/s\u00B2"});
+    _TreeItems.control.body_ref_accel_unlimit[3] = new QTreeWidgetItem(control_top, {"Unlimit Ref Acceleration C", "", u8"m/s\u00B2"});
+    _TreeItems.control.body_ref_accel[0] = new QTreeWidgetItem(control_top, {"Ref Acceleration X", "", u8"m/s\u00B2"});
+    _TreeItems.control.body_ref_accel[1] = new QTreeWidgetItem(control_top, {"Ref Acceleration Y", "", u8"m/s\u00B2"});
+    _TreeItems.control.body_ref_accel[2] = new QTreeWidgetItem(control_top, {u8"Ref Acceleration \u03C9", "", u8"rad/s\u00B2"});
+    _TreeItems.control.body_ref_accel[3] = new QTreeWidgetItem(control_top, {"Ref Acceleration C", "", u8"m/s\u00B2"});
+    _TreeItems.control.rotation_torque = new QTreeWidgetItem(control_top, {"Rotation Torque", "", "Nm"});
+    _TreeItems.control.omega_weight = new QTreeWidgetItem(control_top, {"Omega Weight", "", ""});
 
     // カラム幅を文字に合わせてリサイズする
     _Ui->telemetryTree->expandAll();
@@ -499,20 +514,20 @@ void MainWindow::startLogging(void) {
     if (file->open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream stream(file.get());
         stream << "Time";
+        stream << ",AccelX,AccelY,AccelZ";
+        stream << ",GyroX,GyroY,GyroZ";
+        stream << ",GravityX,GravityY,GravityZ";
+        stream << ",BodyAccelX,BodyAccelY,BodyAccelW";
+        stream << ",BodyVelocityX,BodyVelocityY,BodyVelocityW";
         for (int index = 1; index <= 4; index++)
-            stream << ",Velocity " << index << " Meas";
+            stream << ",Wheel" << index << "Velocity";
         for (int index = 1; index <= 4; index++)
-            stream << ",Current " << index << " Meas";
+            stream << ",Wheel" << index << "CurrentMeas";
         for (int index = 1; index <= 4; index++)
-            stream << ",Velocity " << index << " Ref";
-        for (int index = 1; index <= 4; index++)
-            stream << ",Current " << index << " Ref";
-        for (int index = 1; index <= 4; index++)
-            stream << ",Energy " << index;
-        stream << ",Machine Vx,Machine Vy,Machine Omega";
-        stream << ",Slip Flags";
-        stream << ",Accel X,Accel Y,Accel Z";
-        stream << ",Gyro X,Gyro Y,Gyro Z";
+            stream << ",Wheel" << index << "CurrentRef";
+        stream << ",UnlimitBodyRefAccelX,UnlimitBodyRefAccelY,UnlimitBodyRefAccelW,UnlimitBodyRefAccelC";
+        stream << ",BodyRefAccelX,BodyRefAccelY,BodyRefAccelW,BodyRefAccelC";
+        stream << ",RotationTorque,OmegaWeight";
         stream << ",DC48V,Battery Voltage,Battery Current\n";
         stream.flush();
         _LogFrameNumber = 0;
