@@ -15,10 +15,14 @@ using namespace std::chrono_literals;
 namespace phoenix {
 
 static const std::string DEFAULT_DEVICE_PATH("/dev/spidev1.0");
-static constexpr double DEFAULT_SPEED_KP = 5.0;
-static constexpr double DEFAULT_SPEED_KI = 0.05;
-static constexpr double DEFAULT_COMPENSATION_KP = 2.0;
-static constexpr double DEFAULT_COMPENSATION_KI = 0.02;
+static constexpr double DEFAULT_SPEED_X_KP = 10.0;
+static constexpr double DEFAULT_SPEED_Y_KP = 10.0;
+static constexpr double DEFAULT_SPEED_W_KP = 50.0;
+static constexpr double DEFAULT_SPEED_C_KP = 5.0;
+static constexpr double DEFAULT_SPEED_X_KI = 0.04;
+static constexpr double DEFAULT_SPEED_Y_KI = 0.04;
+static constexpr double DEFAULT_SPEED_W_KI = 0.5;
+static constexpr double DEFAULT_SPEED_C_KI = 0.1;
 
 /// Nios IIの共有メモリーのベースアドレス
 static constexpr uint32_t NIOS_SHARED_RAM_BASE = 0x0u;
@@ -72,10 +76,14 @@ CommandNode::CommandNode(const rclcpp::NodeOptions &options)
 
     // パラメータを宣言し値を取得する
     auto device_path = declare_parameter<std::string>(command::PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);
-    declare_parameter<double>(command::PARAM_NAME_SPEED_KP, DEFAULT_SPEED_KP);
-    declare_parameter<double>(command::PARAM_NAME_SPEED_KI, DEFAULT_SPEED_KI);
-    declare_parameter<double>(command::PARAM_NAME_COMPENSATION_KP, DEFAULT_COMPENSATION_KP);
-    declare_parameter<double>(command::PARAM_NAME_COMPENSATION_KI, DEFAULT_COMPENSATION_KI);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_X_KP, DEFAULT_SPEED_X_KP);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_Y_KP, DEFAULT_SPEED_Y_KP);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_W_KP, DEFAULT_SPEED_W_KP);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_C_KP, DEFAULT_SPEED_C_KP);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_X_KI, DEFAULT_SPEED_X_KI);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_Y_KI, DEFAULT_SPEED_Y_KI);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_W_KI, DEFAULT_SPEED_W_KI);
+    declare_parameter<double>(command::PARAM_NAME_SPEED_C_KI, DEFAULT_SPEED_C_KI);
 
     // SPIデバイスを開く
     _spi = std::make_shared<Spi>();
@@ -393,17 +401,29 @@ rcl_interfaces::msg::SetParametersResult CommandNode::setParameterCallback(const
     // 新しいパラメータは次にcmd_velトピックを受信したときに共有メモリに書き込まれる
     for (auto &parameter : parameters) {
         constexpr float inf = std::numeric_limits<float>::infinity();
-        if (parameter.get_name() == command::PARAM_NAME_SPEED_KP) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p);
+        if (parameter.get_name() == command::PARAM_NAME_SPEED_X_KP) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[0]);
         }
-        else if (parameter.get_name() == command::PARAM_NAME_SPEED_KI) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i);
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_Y_KP) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[1]);
         }
-        else if (parameter.get_name() == command::PARAM_NAME_COMPENSATION_KP) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.compensation_gain_p);
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_W_KP) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[2]);
         }
-        else if (parameter.get_name() == command::PARAM_NAME_COMPENSATION_KI) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.compensation_gain_i);
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_C_KP) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[3]);
+        }
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_X_KI) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[0]);
+        }
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_Y_KI) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[1]);
+        }
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_W_KI) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[2]);
+        }
+        else if (parameter.get_name() == command::PARAM_NAME_SPEED_C_KI) {
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[3]);
         }
         if (!result.successful) {
             if (result.reason.empty()) {

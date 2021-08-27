@@ -81,16 +81,16 @@ static constexpr char NODE_NAME[] = "command";
 static constexpr char PARAM_NAME_DEVICE_PATH[] = "device_path";
 
 /// 速度制御の比例ゲインのパラメータ名
-static constexpr char PARAM_NAME_SPEED_KP[] = "speed_kp";
+static constexpr char PARAM_NAME_SPEED_X_KP[] = "speed_x_kp";
+static constexpr char PARAM_NAME_SPEED_Y_KP[] = "speed_y_kp";
+static constexpr char PARAM_NAME_SPEED_W_KP[] = "speed_w_kp";
+static constexpr char PARAM_NAME_SPEED_C_KP[] = "speed_c_kp";
 
 /// 速度制御の積分ゲインのパラメータ名
-static constexpr char PARAM_NAME_SPEED_KI[] = "speed_ki";
-
-/// 姿勢補正制御の比例ゲインのパラメータ名
-static constexpr char PARAM_NAME_COMPENSATION_KP[] = "compensation_kp";
-
-/// 姿勢補正制御の積分ゲインのパラメータ名
-static constexpr char PARAM_NAME_COMPENSATION_KI[] = "compensation_ki";
+static constexpr char PARAM_NAME_SPEED_X_KI[] = "speed_x_ki";
+static constexpr char PARAM_NAME_SPEED_Y_KI[] = "speed_y_ki";
+static constexpr char PARAM_NAME_SPEED_W_KI[] = "speed_w_ki";
+static constexpr char PARAM_NAME_SPEED_C_KI[] = "speed_c_ki";
 
 } // namespace command
 

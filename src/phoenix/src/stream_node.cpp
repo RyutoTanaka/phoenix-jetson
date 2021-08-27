@@ -34,21 +34,20 @@ static std::unique_ptr<phoenix_msgs::msg::StreamDataMotion> convertToMotion(cons
     for (int axis = 0; axis < 3; axis++) {
         msg->accelerometer[axis] = data.accelerometer[axis];
         msg->gyroscope[axis] = data.gyroscope[axis];
+        msg->gravity[axis] = data.gravity[axis];
+        msg->body_acceleration[axis] = data.body_acceleration[axis];
+        msg->body_velocity[axis] = data.body_velocity[axis];
     }
     for (int index = 0; index < 4; index++) {
         msg->wheel_velocity_meas[index] = data.wheel_velocity_meas[index];
         msg->wheel_current_meas_d[index] = data.wheel_current_meas_d[index];
         msg->wheel_current_meas_q[index] = data.wheel_current_meas_q[index];
-    }
-    for (int index = 0; index < 4; index++) {
-        msg->wheel_velocity_ref[index] = data.wheel_velocity_ref[index];
         msg->wheel_current_ref[index] = data.wheel_current_ref[index];
-        msg->wheel_current_limit[index] = data.wheel_current_limit[index];
+        msg->body_ref_accel_unlimit[index] = data.body_ref_accel_unlimit[index];
+        msg->body_ref_accel[index] = data.body_ref_accel[index];
     }
-    for (int index = 0; index < 3; index++) {
-        msg->machine_velocity[index] = data.machine_velocity[index];
-    }
-    msg->slip_flags = data.slip_flags;
+    msg->rotation_torque = data.rotation_torque;
+    msg->omega_weight = data.omega_weight;
     msg->performance_counter = data.performance_counter;
     return msg;
 }
@@ -63,9 +62,9 @@ static std::unique_ptr<nav_msgs::msg::Odometry> convertToOdometry(const StreamDa
     msg->header.stamp = data.timestamp;
     msg->header.frame_id = FRAME_ID_ODOMETRY;
     msg->child_frame_id = FRAME_ID_BASE;
-    msg->twist.twist.linear.x = data.machine_velocity[0];
-    msg->twist.twist.linear.x = data.machine_velocity[1];
-    msg->twist.twist.angular.z = data.machine_velocity[2];
+    msg->twist.twist.linear.x = data.body_velocity[0];
+    msg->twist.twist.linear.x = data.body_velocity[1];
+    msg->twist.twist.angular.z = data.body_velocity[2];
     return msg;
 }
 
