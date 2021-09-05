@@ -71,19 +71,19 @@ void BatteryPublisherNode::timerCallback(void) {
     }
     if (_channel == 0) {
         // AIN0 (VBAT_IN_MON)
-        _battery_state.voltage = adc_result * (2.048f / 32767 * 23);
+        _battery_state.voltage = adc_result * (2.048f / 32768 * 23);
     }
     else if (_channel == 1) {
         // AIN1 (VSYS_MON)
-        _vsys_voltage = adc_result * (2.048f / 32767 * 23);
+        _vsys_voltage = adc_result * (2.048f / 32768 * 23);
     }
     else if (_channel == 2) {
         // AIN2 (ESW_IS)
-        _battery_state.current = adc_result * (-2.048f / 32767 / 220 * 9700); // 負荷は放電電流になるので負符号にする
+        _battery_state.current = adc_result * (-2.048f / 32768 / 220 * 9700); // 負荷は放電電流になるので負符号にする
     }
     else if (_channel == 3) {
         // AIN3 (TEMP_MON)
-        float ratio = 3.3f / (adc_result * (2.048f / 32767)) - 1.0f;
+        float ratio = 3.3f / (adc_result * (2.048f / 32768)) - 1.0f;
         _battery_state.temperature = 1.0f / (-log(ratio) / 3380 + 1.0f / (273.15f + 25.0f)) - 273.15f;
 
         // 測定結果を配信する
