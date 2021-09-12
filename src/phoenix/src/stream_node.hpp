@@ -28,7 +28,7 @@ namespace phoenix {
 struct StreamDataMotionWithTimestamp : public StreamDataMotion {
     rclcpp::Time timestamp;
 
-    StreamDataMotionWithTimestamp(const StreamDataMotion_t &motion, rclcpp::Time timestamp) : StreamDataMotion(motion), timestamp(timestamp) {}
+    StreamDataMotionWithTimestamp(const StreamDataMotion &motion, rclcpp::Time timestamp) : StreamDataMotion(motion), timestamp(timestamp) {}
 };
 
 /**
@@ -77,13 +77,13 @@ private:
     std::mutex _queue_mutex;
 
     /// StreamDataStatus_tを格納するキュー
-    std::deque<StreamDataStatus_t> _status_queue;
+    std::deque<StreamDataStatus> _status_queue;
 
     /// StreamDataAdc2_tを格納するキュー
-    std::deque<StreamDataAdc2_t> _adc2_queue;
+    std::deque<StreamDataAdc2> _adc2_queue;
 
     /// StreamDataMotion_tを格納するキュー
-    std::deque<StreamDataMotionWithTimestamp_t> _motion_queue;
+    std::deque<StreamDataMotionWithTimestamp> _motion_queue;
 
     // injected_error_flagsトピックのSubscription
     rclcpp::Subscription<std_msgs::msg::UInt32>::SharedPtr _injected_error_flags_subscription;
@@ -110,7 +110,7 @@ private:
     diagnostic_updater::Updater _diag_updater;
 
     /// 最後に受信したStreamDataStatus_t
-    StreamDataStatus_t _status;
+    StreamDataStatus _status;
 
     /// tf2関連トピックのPublisher
     tf2_ros::TransformBroadcaster _tf2_broadcaster;

@@ -203,36 +203,36 @@ void StreamPublisherNode::receiveThread(void) {
 void StreamPublisherNode::processPacket(const std::vector<std::uint8_t> &payload, int channel) {
     switch (channel) {
     case StreamIdStatus:
-        if (payload.size() == sizeof(StreamDataStatus_t)) {
+        if (payload.size() == sizeof(StreamDataStatus)) {
             _queue_mutex.lock();
             if (QUEUE_LENGTH <= _status_queue.size()) {
                 _status_queue.pop_front();
             }
-            _status_queue.push_back(*reinterpret_cast<const StreamDataStatus_t *>(payload.data()));
+            _status_queue.push_back(*reinterpret_cast<const StreamDataStatus *>(payload.data()));
             _queue_mutex.unlock();
             _condition_variable.notify_one();
         }
         break;
 
     case StreamIdAdc2:
-        if (payload.size() == sizeof(StreamDataAdc2_t)) {
+        if (payload.size() == sizeof(StreamDataAdc2)) {
             _queue_mutex.lock();
             if (QUEUE_LENGTH <= _adc2_queue.size()) {
                 _adc2_queue.pop_front();
             }
-            _adc2_queue.push_back(*reinterpret_cast<const StreamDataAdc2_t *>(payload.data()));
+            _adc2_queue.push_back(*reinterpret_cast<const StreamDataAdc2 *>(payload.data()));
             _queue_mutex.unlock();
             _condition_variable.notify_one();
         }
         break;
 
     case StreamIdMotion:
-        if (payload.size() == sizeof(StreamDataMotion_t)) {
+        if (payload.size() == sizeof(StreamDataMotion)) {
             _queue_mutex.lock();
             if (QUEUE_LENGTH <= _motion_queue.size()) {
                 _motion_queue.pop_front();
             }
-            _motion_queue.emplace_back(*reinterpret_cast<const StreamDataMotion_t *>(payload.data()), rclcpp::Clock().now());
+            _motion_queue.emplace_back(*reinterpret_cast<const StreamDataMotion *>(payload.data()), rclcpp::Clock().now());
             _queue_mutex.unlock();
             _condition_variable.notify_one();
         }
@@ -251,8 +251,8 @@ void StreamPublisherNode::publishThread(void) {
         if (!_status_queue.empty()) {
             // StreamDataStatus_tをROS2メッセージに変換して配信する
 
-            // 最後のStreamDataStatus_tをコピーする
-            StreamDataStatus_t last_status = _status;
+            // 最後のStreamDataStatusをコピーする
+            StreamDataStatus last_status = _status;
             _status = _status_queue.back();
             _status.error_flags |= _injected_error_flags;
             _status.fault_flags |= _injected_fault_flags;

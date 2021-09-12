@@ -16,7 +16,7 @@ void setDefaultHardwareId(const std::string &hardware_id);
  * 最後に受信したステータスを元に診断ステータスを作成する。
  * @param diag 診断ステータス
  */
-void createFpgaDiagnostics(const StreamDataStatus_t &status, diagnostic_msgs::msg::DiagnosticStatus &diag);
+void createFpgaDiagnostics(const StreamDataStatus &status, diagnostic_msgs::msg::DiagnosticStatus &diag);
 
 /**
  * @brief ホスト名を取得する

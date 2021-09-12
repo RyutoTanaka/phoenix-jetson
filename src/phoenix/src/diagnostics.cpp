@@ -72,7 +72,7 @@ static inline std::string flagsToString(uint32_t flags, const std::pair<uint32_t
     return ss.str();
 }
 
-void createFpgaDiagnostics(const StreamDataStatus_t &status, diagnostic_msgs::msg::DiagnosticStatus &diag) {
+void createFpgaDiagnostics(const StreamDataStatus &status, diagnostic_msgs::msg::DiagnosticStatus &diag) {
     const uint32_t error_flags = status.error_flags;
     const uint32_t fault_flags = status.fault_flags;
 

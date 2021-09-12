@@ -149,10 +149,10 @@ void CommandNode::doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag) {
 
     // 現在のエラーフラグとフォルトフラグを確認する
     uint32_t error_flags, fault_flags;
-    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory, ErrorFlags)), &error_flags)) {
+    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory, error_flags)), &error_flags)) {
         return;
     }
-    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory, FaultFlags)), &fault_flags)) {
+    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory, fault_flags)), &fault_flags)) {
         return;
     }
     fault_flags |= _injected_fault_flags;
@@ -179,7 +179,7 @@ void CommandNode::doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag) {
     error_flags |= _injected_error_flags;
 
     // 結果を返す
-    StreamDataStatus_t status;
+    StreamDataStatus status;
     status.error_flags = error_flags;
     status.fault_flags = fault_flags;
     createFpgaDiagnostics(status, diag);
@@ -241,12 +241,12 @@ void CommandNode::programNiosCallback(const std::shared_ptr<rmw_request_id_t> re
 
     if (succeeded) {
         // 共有メモリーを消去する
-        SharedMemory_t zeros;
+        SharedMemory zeros;
         memset(&zeros, 0, sizeof(zeros));
         _avalon_mm->writeData(NIOS_SHARED_RAM_BASE, sizeof(zeros), &zeros);
 
         // 次に書き込むフレームナンバーをゼロに初期化する
-        _shared_memory.Parameters.FrameNumber = 0;
+        _shared_memory.parameters.frame_number = 0;
     }
 
     if (succeeded) {
@@ -402,28 +402,28 @@ rcl_interfaces::msg::SetParametersResult CommandNode::setParameterCallback(const
     for (auto &parameter : parameters) {
         constexpr float inf = std::numeric_limits<float>::infinity();
         if (parameter.get_name() == command::PARAM_NAME_SPEED_X_KP) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[0]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_p[0]);
         }
         else if (parameter.get_name() == command::PARAM_NAME_SPEED_Y_KP) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[1]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_p[1]);
         }
         else if (parameter.get_name() == command::PARAM_NAME_SPEED_W_KP) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[2]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_p[2]);
         }
         else if (parameter.get_name() == command::PARAM_NAME_SPEED_C_KP) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_p[3]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_p[3]);
         }
         else if (parameter.get_name() == command::PARAM_NAME_SPEED_X_KI) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[0]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_i[0]);
         }
         else if (parameter.get_name() == command::PARAM_NAME_SPEED_Y_KI) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[1]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_i[1]);
         }
         else if (parameter.get_name() == command::PARAM_NAME_SPEED_W_KI) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[2]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_i[2]);
         }
         else if (parameter.get_name() == command::PARAM_NAME_SPEED_C_KI) {
-            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.Parameters.speed_gain_i[3]);
+            result.successful = writeFloatParameterToMemory(parameter, 0.0f, inf, &_shared_memory.parameters.speed_gain_i[3]);
         }
         if (!result.successful) {
             if (result.reason.empty()) {
