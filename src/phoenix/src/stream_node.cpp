@@ -12,11 +12,11 @@ namespace phoenix {
 static const std::string DEFAULT_DEVICE_PATH = "/dev/ttyTHS1";
 
 /**
- * @brief StreamDataAdc2_tをStreamDataAdc2メッセージに変換する
+ * @brief StreamDataAdc2をROS2のStreamDataAdc2メッセージに変換する
  * @param data 変換前のデータ
  * @param msg 変換後のメッセージ
  */
-static std::unique_ptr<phoenix_msgs::msg::StreamDataAdc2> convertToAdc2(const StreamDataAdc2_t &data) {
+static std::unique_ptr<phoenix_msgs::msg::StreamDataAdc2> convertToAdc2(const StreamDataAdc2 &data) {
     auto msg = std::make_unique<phoenix_msgs::msg::StreamDataAdc2>();
     msg->dc48v_voltage = data.dc48v_voltage;
     msg->dribble_voltage = data.dribble_voltage;
@@ -25,11 +25,11 @@ static std::unique_ptr<phoenix_msgs::msg::StreamDataAdc2> convertToAdc2(const St
 }
 
 /**
- * @brief StreamDataMotionWithTimestamp_tをStreamDataMotionメッセージに変換する
+ * @brief StreamDataMotionWithTimestampをROS2のStreamDataMotionメッセージに変換する
  * @param data 変換前のデータ
  * @return 変換後のメッセージ
  */
-static std::unique_ptr<phoenix_msgs::msg::StreamDataMotion> convertToMotion(const StreamDataMotionWithTimestamp_t &data) {
+static std::unique_ptr<phoenix_msgs::msg::StreamDataMotion> convertToMotion(const StreamDataMotionWithTimestamp &data) {
     auto msg = std::make_unique<phoenix_msgs::msg::StreamDataMotion>();
     for (int axis = 0; axis < 3; axis++) {
         msg->accelerometer[axis] = data.accelerometer[axis];
@@ -43,21 +43,18 @@ static std::unique_ptr<phoenix_msgs::msg::StreamDataMotion> convertToMotion(cons
         msg->wheel_current_meas_d[index] = data.wheel_current_meas_d[index];
         msg->wheel_current_meas_q[index] = data.wheel_current_meas_q[index];
         msg->wheel_current_ref[index] = data.wheel_current_ref[index];
-        msg->body_ref_accel_unlimit[index] = data.body_ref_accel_unlimit[index];
         msg->body_ref_accel[index] = data.body_ref_accel[index];
     }
-    msg->rotation_torque = data.rotation_torque;
-    msg->omega_weight = data.omega_weight;
     msg->performance_counter = data.performance_counter;
     return msg;
 }
 
 /**
- * @brief StreamDataMotionWithTimestamp_tをOdometryメッセージに変換する
+ * @brief StreamDataMotionWithTimestampをOdometryメッセージに変換する
  * @param data 変換前のデータ
  * @return 変換後のメッセージ
  */
-static std::unique_ptr<nav_msgs::msg::Odometry> convertToOdometry(const StreamDataMotionWithTimestamp_t &data) {
+static std::unique_ptr<nav_msgs::msg::Odometry> convertToOdometry(const StreamDataMotionWithTimestamp &data) {
     auto msg = std::make_unique<nav_msgs::msg::Odometry>();
     msg->header.stamp = data.timestamp;
     msg->header.frame_id = FRAME_ID_ODOMETRY;
@@ -69,11 +66,11 @@ static std::unique_ptr<nav_msgs::msg::Odometry> convertToOdometry(const StreamDa
 }
 
 /**
- * @brief StreamDataMotionWithTimestamp_tをImuメッセージに変換する
+ * @brief StreamDataMotionWithTimestampをImuメッセージに変換する
  * @param data 変換前のデータ
  * @return 変換後のメッセージ
  */
-static std::unique_ptr<sensor_msgs::msg::Imu> convertToImu(const StreamDataMotionWithTimestamp_t &data) {
+static std::unique_ptr<sensor_msgs::msg::Imu> convertToImu(const StreamDataMotionWithTimestamp &data) {
     auto msg = std::make_unique<sensor_msgs::msg::Imu>();
     msg->header.stamp = data.timestamp;
     msg->header.frame_id = FRAME_ID_IMU;

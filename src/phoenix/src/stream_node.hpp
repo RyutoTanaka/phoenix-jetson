@@ -25,10 +25,10 @@
 
 namespace phoenix {
 
-struct StreamDataMotionWithTimestamp_t : public StreamDataMotion_t {
+struct StreamDataMotionWithTimestamp : public StreamDataMotion {
     rclcpp::Time timestamp;
 
-    StreamDataMotionWithTimestamp_t(const StreamDataMotion_t &motion, rclcpp::Time timestamp) : StreamDataMotion_t(motion), timestamp(timestamp) {}
+    StreamDataMotionWithTimestamp(const StreamDataMotion_t &motion, rclcpp::Time timestamp) : StreamDataMotion(motion), timestamp(timestamp) {}
 };
 
 /**

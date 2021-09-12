@@ -127,20 +127,20 @@ void CommandNode::commandVelocityCallback(const std::shared_ptr<geometry_msgs::m
     }
 
     // パラメータをコピーする
-    _shared_memory.Parameters.FrameNumber++;
-    _shared_memory.Parameters.speed_x = msg->linear.x;
-    _shared_memory.Parameters.speed_y = msg->linear.y;
-    _shared_memory.Parameters.speed_omega = msg->angular.z;
-    _shared_memory.Parameters.dribble_power = msg->linear.z; // 並進ベクトルのZ成分をドリブルとして扱う
+    _shared_memory.parameters.frame_number++;
+    _shared_memory.parameters.speed_x = msg->linear.x;
+    _shared_memory.parameters.speed_y = msg->linear.y;
+    _shared_memory.parameters.speed_omega = msg->angular.z;
+    _shared_memory.parameters.dribble_power = msg->linear.z; // 並進ベクトルのZ成分をドリブルとして扱う
 
     // チェックサムを計算して格納する
-    uint32_t checksum = _shared_memory.Parameters.CalculateChecksum();
-    _shared_memory.HeadChecksum = checksum;
-    _shared_memory.TailChecksum = checksum;
+    uint32_t checksum = _shared_memory.parameters.calculateChecksum();
+    _shared_memory.head_checksum = checksum;
+    _shared_memory.tail_checksum = checksum;
 
     // パラメータと前後のチェックサムを書き込む
-    _avalon_mm->writeData(NIOS_SHARED_RAM_BASE + static_cast<uint32_t>(offsetof(SharedMemory_t, HeadChecksum)),
-                          sizeof(SharedMemory_t::Parameters_t) + sizeof(uint32_t) * 2, &_shared_memory.HeadChecksum);
+    _avalon_mm->writeData(NIOS_SHARED_RAM_BASE + static_cast<uint32_t>(offsetof(SharedMemory, head_checksum)),
+                          sizeof(SharedMemory::Parameters) + sizeof(uint32_t) * 2, &_shared_memory.head_checksum);
 }
 
 void CommandNode::doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag) {
@@ -149,10 +149,10 @@ void CommandNode::doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag) {
 
     // 現在のエラーフラグとフォルトフラグを確認する
     uint32_t error_flags, fault_flags;
-    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory_t, ErrorFlags)), &error_flags)) {
+    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory, ErrorFlags)), &error_flags)) {
         return;
     }
-    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory_t, FaultFlags)), &fault_flags)) {
+    if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory, FaultFlags)), &fault_flags)) {
         return;
     }
     fault_flags |= _injected_fault_flags;
@@ -160,7 +160,7 @@ void CommandNode::doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag) {
     if ((fault_flags == 0) && (error_flags != 0)) {
         // 何らかのエラーが発生しているので消去を試みる
         // ErrorFlagsに0xFFFFFFFFを書き込むとエラーフラグの消去を要求できる
-        if (!_avalon_mm->writeData(static_cast<uint32_t>(offsetof(SharedMemory_t, ErrorFlags)), 0xFFFFFFFFUL)) {
+        if (!_avalon_mm->writeData(static_cast<uint32_t>(offsetof(SharedMemory, error_flags)), 0xFFFFFFFFUL)) {
             return;
         }
 
@@ -168,7 +168,7 @@ void CommandNode::doSelfTestFpga(diagnostic_msgs::msg::DiagnosticStatus &diag) {
         int timeout = 3;
         do {
             std::this_thread::sleep_for(1ms);
-            if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory_t, ErrorFlags)), &error_flags)) {
+            if (!_avalon_mm->readData(static_cast<uint32_t>(offsetof(SharedMemory, error_flags)), &error_flags)) {
                 return;
             }
             if (error_flags != 0xFFFFFFFFUL) {

@@ -99,7 +99,7 @@ private:
     self_test::TestRunner _test_runner;
 
     /// 共有メモリー
-    SharedMemory_t _shared_memory;
+    SharedMemory _shared_memory;
 
     /// 故障注入されたエラーフラグ
     uint32_t _injected_error_flags = 0;

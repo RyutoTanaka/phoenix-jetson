@@ -1,13 +1,9 @@
 ﻿#pragma once
 
 #define NOGDI
-#include "gamepad_thread.hpp"
 #include "image_viewer.hpp"
 #include "node_thread.hpp"
 #include <QtCore/QFile>
-#include <QtWidgets/QGraphicsEllipseItem>
-#include <QtWidgets/QGraphicsLineItem>
-#include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QTreeWidgetItem>
 #include <phoenix_msgs/msg/stream_data_adc2.hpp>
@@ -43,10 +39,6 @@ private:
     void saveSettings(void) const;
 
     // void closeEvent(QCloseEvent *event) override;
-
-    virtual bool eventFilter(QObject *obj, QEvent *event) override;
-
-    Q_SLOT void connectToGamepad(int index);
 
     Q_SLOT void reloadNamespaceList(void);
 
@@ -88,7 +80,7 @@ private:
             QTreeWidgetItem *wheel_velocity[4], *wheel_current_d[4], *wheel_current_q[4];
         } motion;
         struct Control_t {
-            QTreeWidgetItem *perf_counter, *wheel_current_ref[4], *body_ref_accel_unlimit[4], *body_ref_accel[4], *rotation_torque, *omega_weight;
+            QTreeWidgetItem *perf_counter, *wheel_current_ref[4], *body_ref_accel[4];
         } control;
     };
 
@@ -103,26 +95,13 @@ private:
 
     static std::shared_ptr<rclcpp::Node> createNode(void);
 
-    void quitGamepadThread(void);
-
     /// Qt Designerで作成したUI要素
     Ui_MainWindow *_Ui;
 
-    ImageViewerWidget *_ImageViewer;
-
-    struct {
-        QGraphicsScene *scene;
-        QGraphicsLineItem *cross_h, *cross_v;
-        double velocity_scale_x;     // -1.0 ~ +1.0
-        double velocity_scale_y;     // -1.0 ~ +1.0
-        double velocity_scale_omega; // degree
-    } _Pad;
+    ImageViewerWidget *_image_viewer;
 
     /// telemetryTreeに表示する項目
     TreeItems_t _TreeItems;
-
-    /// ゲームパッド入力を処理するスレッド
-    GamepadThread *_GamepadThread = nullptr;
 
     /// テレメトリのログを保存するファイル
     std::shared_ptr<QFile> _LogFile;

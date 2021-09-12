@@ -10,27 +10,27 @@ class GamepadThread : public QThread {
     Q_OBJECT
 
 public:
-    struct InputState_t {
+    struct InputState {
         uint16_t buttons;
-        float leftTrigger;
-        float rightTrigger;
-        float leftStickX;
-        float leftStickY;
-        float rightStickX;
-        float rightStickY;
+        float left_trigger;
+        float right_trigger;
+        float left_stick_x;
+        float left_stick_y;
+        float right_stick_x;
+        float right_stick_y;
     };
 
     GamepadThread(QObject *parent = nullptr);
 
     virtual ~GamepadThread();
 
-    std::shared_ptr<InputState_t> inputState(int deviceId);
+    std::shared_ptr<InputState> inputState(int device_id);
 
-    Q_SLOT void vibrate(int deviceId, float power);
+    Q_SLOT void vibrate(int device_id, float power);
 
-    Q_SIGNAL void gamepadConnected(int deviceId);
+    Q_SIGNAL void gamepadConnected(int device_id);
 
-    Q_SIGNAL void gamepadDisconnected(int deviceId);
+    Q_SIGNAL void gamepadDisconnected(int device_id);
 
 private:
     void run(void) override;
@@ -41,11 +41,11 @@ private:
 
     static constexpr int MAX_DEVICE_COUNT = 4;
 
-    std::array<bool, MAX_DEVICE_COUNT> _IsDeviceConnected = {};
+    std::array<bool, MAX_DEVICE_COUNT> _is_device_connected = {};
 
-    std::array<uint32_t, MAX_DEVICE_COUNT> _LastPacketNumbers = {};
+    std::array<uint32_t, MAX_DEVICE_COUNT> _last_packet_numbers = {};
 
-    std::array<std::shared_ptr<InputState_t>, MAX_DEVICE_COUNT> _InputStates;
+    std::array<std::shared_ptr<InputState>, MAX_DEVICE_COUNT> _input_states;
 
-    std::array<std::atomic<int>, MAX_DEVICE_COUNT> _VibrationPowers = {};
+    std::array<std::atomic<int>, MAX_DEVICE_COUNT> _vibration_powers = {};
 };

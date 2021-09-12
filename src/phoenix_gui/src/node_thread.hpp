@@ -2,6 +2,7 @@
 
 #include <QtCore/QThread>
 #include <rclcpp/rclcpp.hpp>
+#include <chrono>
 
 class NodeThread : public QThread {
     Q_OBJECT
@@ -28,7 +29,7 @@ public:
     }
 
     /// quit()を実行してから終了するまでの待ち時間
-    static constexpr int QUIT_TIMEOUT = 100;
+    static constexpr auto QUIT_TIMEOUT = std::chrono::milliseconds(100);
 
 private:
     void run(void) override;

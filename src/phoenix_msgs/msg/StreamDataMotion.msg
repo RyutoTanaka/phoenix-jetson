@@ -7,8 +7,5 @@ float32[4] wheel_velocity_meas
 float32[4] wheel_current_meas_d
 float32[4] wheel_current_meas_q
 float32[4] wheel_current_ref
-float32[4] body_ref_accel_unlimit
 float32[4] body_ref_accel
-float32 rotation_torque
-float32 omega_weight
 uint16 performance_counter

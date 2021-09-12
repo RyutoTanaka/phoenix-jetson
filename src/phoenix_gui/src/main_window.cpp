@@ -9,7 +9,6 @@
 #include <QtCore/QTimer>
 #include <QtGui/QCloseEvent>
 #include <QtWidgets/QFileDialog>
-#include <QtWidgets/QGestureEvent>
 #include <QtWidgets/QMessageBox>
 #include <algorithm>
 #include <chrono>
@@ -21,45 +20,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     _Ui->setupUi(this);
     _Ui->reloadButton->setIcon(QApplication::style()->standardPixmap(QStyle::SP_BrowserReload));
     _Ui->namespaceComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    _Ui->gamepadComboBox->addItem("None");
     generateTelemetryTreeItems();
-    _ImageViewer = new ImageViewerWidget(_Ui->splitter_2);
-    _Ui->splitter_2->insertWidget(0, _ImageViewer);
-    _ImageViewer->convertBgrToRgb(true);
-    _ImageViewer->setMirror(true, true);
 
-    _Pad.scene = new QGraphicsScene(this);
-    _Ui->controllerPadGraphics->setScene(_Pad.scene);
-    _Ui->controllerPadGraphics->viewport()->grabGesture(Qt::PanGesture);
-    _Ui->controllerPadGraphics->viewport()->grabGesture(Qt::PinchGesture);
-    _Ui->controllerPadGraphics->viewport()->installEventFilter(this);
-    _Pad.cross_h = _Pad.scene->addLine(0, 0, 1, 0, QPen(Qt::black));
-    _Pad.cross_v = _Pad.scene->addLine(0, 0, 0, 1, QPen(Qt::black));
+    // カメラ画像を表示するImageViewerを作成する
+    auto image_layout = new QHBoxLayout;
+    _Ui->cameraGroup->setLayout(image_layout);
+    _image_viewer = new ImageViewerWidget(_Ui->cameraGroup);
+    image_layout->insertWidget(0, _image_viewer);
+    _image_viewer->convertBgrToRgb(true);
+    _image_viewer->setMirror(true, true);
 
     // ウィンドウ位置とスプリッタの位置を戻す
     restoreSettings();
-
-    // ゲームパッド入力スレッドを作成する
-    _GamepadThread = new GamepadThread();
-    connect(_GamepadThread, &GamepadThread::finished, _GamepadThread, &QObject::deleteLater);
-    connect(
-        _GamepadThread, &GamepadThread::gamepadConnected, this,
-        [this](int deviceId) {
-            _Ui->gamepadComboBox->addItem(QString("XInput %1").arg(deviceId), deviceId);
-        },
-        Qt::QueuedConnection);
-    connect(
-        _GamepadThread, &GamepadThread::gamepadDisconnected, this,
-        [this](int deviceId) {
-            int index = _Ui->gamepadComboBox->findData(deviceId);
-            if (index == _Ui->gamepadComboBox->currentIndex()) {
-                _Ui->gamepadComboBox->setCurrentIndex(0);
-            }
-            if (0 <= index) {
-                _Ui->gamepadComboBox->removeItem(index);
-            }
-        },
-        Qt::QueuedConnection);
 
     // ROS2のネットワークを監視するためのノードを生成する
     _NetworkAwarenessNode = createNode();
@@ -70,31 +42,27 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(timer, &QTimer::timeout, this, &MainWindow::updateTelemertyTreeItems);
 
     // コマンド送信用のタイマーを生成する
-    QTimer *timer2 = new QTimer(this);
+    /*QTimer *timer2 = new QTimer(this);
     timer2->start(100);
-    connect(timer2, &QTimer::timeout, this, &MainWindow::sendCommand);
+    connect(timer2, &QTimer::timeout, this, &MainWindow::sendCommand);*/
 
     // Qtのシグナルを接続する
     connect(_Ui->reloadButton, &QPushButton::clicked, this, &MainWindow::reloadNamespaceList);
     connect(_Ui->namespaceComboBox, &QComboBox::currentTextChanged, this, &MainWindow::connectToNodes);
-    connect(this, &MainWindow::updateRequest, _ImageViewer, qOverload<>(&ImageViewerWidget::update), Qt::QueuedConnection);
-    connect(_Ui->gamepadComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::connectToGamepad);
+    connect(this, &MainWindow::updateRequest, _image_viewer, qOverload<>(&ImageViewerWidget::update), Qt::QueuedConnection);
     connect(_Ui->saveLogButton, &QPushButton::clicked, this, &MainWindow::startLogging);
     connect(_Ui->stopLogButton, &QPushButton::clicked, this, &MainWindow::stopLogging);
     connect(_Ui->programNiosButton, &QPushButton::clicked, this, &MainWindow::programNios);
     connect(_Ui->programFpgaButton, &QPushButton::clicked, this, &MainWindow::programFpga);
     connect(_Ui->selfTestButton, &QPushButton::clicked, this, &MainWindow::runSelfTest);
+    connect(_Ui->controllerGroup, &ControllerControls::commandReady, this, &MainWindow::sendCommand);
 
     // リストを更新する
     reloadNamespaceList();
-
-    // ゲームパッド入力スレッドを開始する
-    _GamepadThread->start();
 }
 
 MainWindow::~MainWindow() {
     quitNodeThread();
-    quitGamepadThread();
     saveSettings();
 }
 
@@ -118,55 +86,6 @@ void MainWindow::saveSettings(void) const {
     settings.setValue("Splitter1State", _Ui->splitter->saveState());
     settings.setValue("Splitter2State", _Ui->splitter_2->saveState());
     settings.setValue("TabIndex", _Ui->tabWidget->currentIndex());
-}
-
-bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
-    const QWidget *viewport = _Ui->controllerPadGraphics->viewport();
-    if (obj == viewport) {
-        if (event->type() == QEvent::Gesture) {
-            QGestureEvent *gesture_event = static_cast<QGestureEvent *>(event);
-            if (QGesture *gesture = gesture_event->gesture(Qt::PanGesture)) {
-                QPanGesture *pan = static_cast<QPanGesture *>(gesture);
-                QSize size = viewport->size();
-                _Pad.velocity_scale_x = pan->offset().x() / (size.width() * 0.5);
-                _Pad.velocity_scale_y = -pan->offset().y() / (size.height() * 0.5);
-                if ((pan->state() == Qt::GestureFinished) || (pan->state() == Qt::GestureCanceled)) {
-                    _Pad.velocity_scale_x = 0.0;
-                    _Pad.velocity_scale_y = 0.0;
-                }
-            }
-            if (QGesture *gesture = gesture_event->gesture(Qt::PinchGesture)) {
-                QPinchGesture *pinch = static_cast<QPinchGesture *>(gesture);
-                QPinchGesture::ChangeFlags change_flags = pinch->changeFlags();
-                if (change_flags & QPinchGesture::RotationAngleChanged) {
-                    double d = pinch->rotationAngle() - pinch->lastRotationAngle();
-                    if (d <= -180.0) {
-                        d += 360.0;
-                    }
-                    else if (180.0 <= d) {
-                        d -= 360.0;
-                    }
-                    _Pad.velocity_scale_omega -= d;
-                }
-                if ((pinch->state() == Qt::GestureFinished) || (pinch->state() == Qt::GestureCanceled)) {
-                    _Pad.velocity_scale_omega = 0.0;
-                }
-            }
-            return true;
-        }
-        else if (event->type() == QEvent::Resize) {
-            int width = viewport->width();
-            int height = viewport->height();
-            _Pad.scene->setSceneRect(0, 0, width, height);
-            _Pad.cross_h->setLine(0, height / 2, width, height / 2);
-            _Pad.cross_v->setLine(width / 2, 0, width / 2, height);
-        }
-    }
-    return false;
-}
-
-void MainWindow::connectToGamepad(int index) {
-    qDebug() << "Selection changed " << index;
 }
 
 void MainWindow::reloadNamespaceList(void) {
@@ -225,7 +144,7 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
         _namespace.clear();
 
         // 画面を初期化する
-        _ImageViewer->setImage(nullptr);
+        _image_viewer->setImage(nullptr);
         emit updateRequest();
         return;
     }
@@ -316,16 +235,10 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
                 stream << msg->wheel_current_ref[1] << sep;
                 stream << msg->wheel_current_ref[2] << sep;
                 stream << msg->wheel_current_ref[3] << sep;
-                stream << msg->body_ref_accel_unlimit[0] << sep;
-                stream << msg->body_ref_accel_unlimit[1] << sep;
-                stream << msg->body_ref_accel_unlimit[2] << sep;
-                stream << msg->body_ref_accel_unlimit[3] << sep;
                 stream << msg->body_ref_accel[0] << sep;
                 stream << msg->body_ref_accel[1] << sep;
                 stream << msg->body_ref_accel[2] << sep;
                 stream << msg->body_ref_accel[3] << sep;
-                stream << msg->rotation_torque << sep;
-                stream << msg->omega_weight << sep;
                 stream << dc48v_voltage << sep;
                 stream << battery_voltage << sep;
                 stream << battery_current << Qt::endl;
@@ -336,7 +249,7 @@ void MainWindow::connectToNodes(const QString &namespace_name) {
     // imageトピックを受信するSubscriptionを作成する
     _Subscribers.image = _NodeThread->node()->create_subscription<sensor_msgs::msg::Image>("/video_source/raw", qos_sensor,
                                                                                            [this](const std::shared_ptr<sensor_msgs::msg::Image> msg) {
-                                                                                               _ImageViewer->setImage(msg);
+                                                                                               _image_viewer->setImage(msg);
                                                                                                emit updateRequest();
                                                                                            });
 
@@ -419,11 +332,8 @@ void MainWindow::updateTelemertyTreeItems(void) {
         }
         for (int index = 0; index < 4; index++) {
             _TreeItems.control.wheel_current_ref[index]->setText(COL, QString::number(msg->wheel_current_ref[index], 'f', 3));
-            _TreeItems.control.body_ref_accel_unlimit[index]->setText(COL, QString::number(msg->body_ref_accel_unlimit[index], 'f', 3));
             _TreeItems.control.body_ref_accel[index]->setText(COL, QString::number(msg->body_ref_accel[index], 'f', 3));
         }
-        _TreeItems.control.rotation_torque->setText(COL, QString::number(msg->rotation_torque, 'f', 3));
-        _TreeItems.control.omega_weight->setText(COL, QString::number(msg->omega_weight, 'f', 3));
         _TreeItems.control.perf_counter->setText(COL, QString::number(msg->performance_counter));
     }
 }
@@ -487,16 +397,10 @@ void MainWindow::generateTelemetryTreeItems(void) {
     _TreeItems.control.wheel_current_ref[1] = new QTreeWidgetItem(control_top, {"Wheel 2 Current Ref", "", "A"});
     _TreeItems.control.wheel_current_ref[2] = new QTreeWidgetItem(control_top, {"Wheel 3 Current Ref", "", "A"});
     _TreeItems.control.wheel_current_ref[3] = new QTreeWidgetItem(control_top, {"Wheel 4 Current Ref", "", "A"});
-    _TreeItems.control.body_ref_accel_unlimit[0] = new QTreeWidgetItem(control_top, {"Unlimit Ref Acceleration X", "", u8"m/s\u00B2"});
-    _TreeItems.control.body_ref_accel_unlimit[1] = new QTreeWidgetItem(control_top, {"Unlimit Ref Acceleration Y", "", u8"m/s\u00B2"});
-    _TreeItems.control.body_ref_accel_unlimit[2] = new QTreeWidgetItem(control_top, {u8"Unlimit Ref Acceleration \u03C9", "", u8"rad/s\u00B2"});
-    _TreeItems.control.body_ref_accel_unlimit[3] = new QTreeWidgetItem(control_top, {"Unlimit Ref Acceleration C", "", u8"m/s\u00B2"});
     _TreeItems.control.body_ref_accel[0] = new QTreeWidgetItem(control_top, {"Ref Acceleration X", "", u8"m/s\u00B2"});
     _TreeItems.control.body_ref_accel[1] = new QTreeWidgetItem(control_top, {"Ref Acceleration Y", "", u8"m/s\u00B2"});
     _TreeItems.control.body_ref_accel[2] = new QTreeWidgetItem(control_top, {u8"Ref Acceleration \u03C9", "", u8"rad/s\u00B2"});
     _TreeItems.control.body_ref_accel[3] = new QTreeWidgetItem(control_top, {"Ref Acceleration C", "", u8"m/s\u00B2"});
-    _TreeItems.control.rotation_torque = new QTreeWidgetItem(control_top, {"Rotation Torque", "", "Nm"});
-    _TreeItems.control.omega_weight = new QTreeWidgetItem(control_top, {"Omega Weight", "", ""});
 
     // カラム幅を文字に合わせてリサイズする
     _Ui->telemetryTree->expandAll();
@@ -517,7 +421,7 @@ void MainWindow::startLogging(void) {
         stream << ",AccelX,AccelY,AccelZ";
         stream << ",GyroX,GyroY,GyroZ";
         stream << ",GravityX,GravityY,GravityZ";
-        stream << ",BodyAccelX,BodyAccelY,BodyAccelW";
+        stream << ",BodyAccelX,BodyAccelY,BodyAccelZ";
         stream << ",BodyVelocityX,BodyVelocityY,BodyVelocityW";
         for (int index = 1; index <= 4; index++)
             stream << ",Wheel" << index << "Velocity";
@@ -525,9 +429,7 @@ void MainWindow::startLogging(void) {
             stream << ",Wheel" << index << "CurrentMeas";
         for (int index = 1; index <= 4; index++)
             stream << ",Wheel" << index << "CurrentRef";
-        stream << ",UnlimitBodyRefAccelX,UnlimitBodyRefAccelY,UnlimitBodyRefAccelW,UnlimitBodyRefAccelC";
         stream << ",BodyRefAccelX,BodyRefAccelY,BodyRefAccelW,BodyRefAccelC";
-        stream << ",RotationTorque,OmegaWeight";
         stream << ",DC48V,Battery Voltage,Battery Current\n";
         stream.flush();
         _LogFrameNumber = 0;
@@ -567,32 +469,15 @@ void MainWindow::quitNodeThread(void) {
         // deleteはdeleteLater()スロットにより行われるのでここでする必要はない
         _NodeThread->requestInterruption();
         _NodeThread->quit();
-        _NodeThread->wait(std::chrono::milliseconds(NodeThread::QUIT_TIMEOUT));
+        _NodeThread->wait(NodeThread::QUIT_TIMEOUT);
         _NodeThread = nullptr;
     }
 }
 
 void MainWindow::sendCommand(void) {
-    if (_publishers.velocity && _Ui->enableControllerCheckBox->isChecked()) {
-        geometry_msgs::msg::Twist msg;
-        bool gamepad_selected;
-        int gamepad_device_id = _Ui->gamepadComboBox->currentData().toInt(&gamepad_selected);
-        if (gamepad_selected) {
-            auto input_state = _GamepadThread->inputState(gamepad_device_id);
-            if (input_state) {
-                msg.linear.x = 4.0f * input_state->leftStickX;
-                msg.linear.y = 4.0f * input_state->leftStickY;
-                msg.linear.z = -input_state->rightTrigger;
-                msg.angular.z = -10.0f * input_state->rightStickX;
-                _publishers.velocity->publish(msg);
-            }
-        }
-        else {
-            msg.linear.x = _Pad.velocity_scale_x;
-            msg.linear.y = _Pad.velocity_scale_y;
-            msg.angular.z = _Pad.velocity_scale_omega * 0.1;
-            _publishers.velocity->publish(msg);
-        }
+    if (_publishers.velocity) {
+        geometry_msgs::msg::Twist msg = _Ui->controllerGroup->targetVelocity();
+        _publishers.velocity->publish(msg);
     }
 }
 
@@ -779,11 +664,4 @@ std::shared_ptr<rclcpp::Node> MainWindow::createNode(void) {
     QString node_name = QString("%1%2").arg(GUI_NODE_NAME_PREFIX).arg(std::random_device()(), 8, 16, QLatin1Char('0'));
     QString namespace_name = QSysInfo::machineHostName();
     return std::make_shared<rclcpp::Node>(node_name.toStdString(), namespace_name.toStdString());
-}
-
-void MainWindow::quitGamepadThread(void) {
-    _GamepadThread->requestInterruption();
-    _GamepadThread->quit();
-    _GamepadThread->wait(std::chrono::milliseconds(NodeThread::QUIT_TIMEOUT));
-    _GamepadThread = nullptr;
 }

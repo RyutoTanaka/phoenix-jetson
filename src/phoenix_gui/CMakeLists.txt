@@ -37,6 +37,7 @@ ament_auto_add_executable(gui
   src/node_thread.cpp
   src/image_viewer.cpp
   src/gamepad_thread.cpp
+  src/controller.cpp
   src/cintelhex/ihex_copy.c
   src/cintelhex/ihex_parse.c
   src/cintelhex/ihex_record.c

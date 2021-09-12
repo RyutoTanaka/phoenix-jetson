@@ -96,23 +96,6 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="enableControllerCheckBox">
-         <property name="text">
-          <string>Enable Controller</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="enableCameraCheckBox">
-         <property name="text">
-          <string>Enable Camera</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
         <spacer name="horizontalSpacer">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -124,33 +107,6 @@
           </size>
          </property>
         </spacer>
-       </item>
-       <item>
-        <widget class="Line" name="line_2">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>Gamepad :</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QComboBox" name="gamepadComboBox">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="sizeAdjustPolicy">
-          <enum>QComboBox::AdjustToContents</enum>
-         </property>
-        </widget>
        </item>
       </layout>
      </widget>
@@ -316,7 +272,7 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <property name="spacing">
-         <number>4</number>
+         <number>0</number>
         </property>
         <property name="leftMargin">
          <number>0</number>
@@ -335,7 +291,24 @@
           <property name="orientation">
            <enum>Qt::Vertical</enum>
           </property>
-          <widget class="QFrame" name="controllerFrame">
+          <property name="handleWidth">
+           <number>10</number>
+          </property>
+          <widget class="QGroupBox" name="cameraGroup">
+           <property name="title">
+            <string>Camera</string>
+           </property>
+           <property name="flat">
+            <bool>false</bool>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+          </widget>
+          <widget class="QFrame" name="bottomFrame">
            <property name="minimumSize">
             <size>
              <width>256</width>
@@ -348,7 +321,10 @@
            <property name="frameShadow">
             <enum>QFrame::Raised</enum>
            </property>
-           <layout class="QGridLayout" name="controllerLayout">
+           <layout class="QHBoxLayout" name="horizontalLayout_3">
+            <property name="spacing">
+             <number>4</number>
+            </property>
             <property name="leftMargin">
              <number>4</number>
             </property>
@@ -361,40 +337,59 @@
             <property name="bottomMargin">
              <number>4</number>
             </property>
-            <property name="spacing">
-             <number>4</number>
-            </property>
-            <item row="1" column="1">
-             <widget class="QGraphicsView" name="controllerPadGraphics">
-              <property name="frameShape">
-               <enum>QFrame::Panel</enum>
+            <item>
+             <widget class="QGroupBox" name="parameterGroup">
+              <property name="title">
+               <string>Parameters</string>
               </property>
-              <property name="lineWidth">
-               <number>2</number>
-              </property>
-              <property name="verticalScrollBarPolicy">
-               <enum>Qt::ScrollBarAlwaysOff</enum>
-              </property>
-              <property name="horizontalScrollBarPolicy">
-               <enum>Qt::ScrollBarAlwaysOff</enum>
-              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_5">
+               <property name="spacing">
+                <number>4</number>
+               </property>
+               <property name="leftMargin">
+                <number>4</number>
+               </property>
+               <property name="topMargin">
+                <number>4</number>
+               </property>
+               <property name="rightMargin">
+                <number>4</number>
+               </property>
+               <property name="bottomMargin">
+                <number>4</number>
+               </property>
+               <item>
+                <widget class="QTreeWidget" name="parameterTree">
+                 <property name="columnCount">
+                  <number>2</number>
+                 </property>
+                 <column>
+                  <property name="text">
+                   <string>Name</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Value</string>
+                  </property>
+                 </column>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
-            <item row="0" column="1">
-             <widget class="QPushButton" name="controllerStopButton">
-              <property name="font">
-               <font>
-                <weight>75</weight>
-                <bold>true</bold>
-               </font>
+            <item>
+             <widget class="ControllerControls" name="controllerGroup">
+              <property name="title">
+               <string>Controller</string>
               </property>
-              <property name="text">
-               <string>Stop</string>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
               </property>
              </widget>
-            </item>
-            <item row="0" column="0" rowspan="3">
-             <widget class="QListWidget" name="controllerList"/>
             </item>
            </layout>
           </widget>
@@ -408,6 +403,14 @@
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ControllerControls</class>
+   <extends>QGroupBox</extends>
+   <header>controller.hpp</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
