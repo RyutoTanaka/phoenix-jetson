@@ -15,7 +15,7 @@ namespace phoenix {
 
 static std::string _default_hardware_id;
 
-void setDefaultHardwareId(const std::string &hardware_id){
+void setDefaultHardwareId(const std::string &hardware_id) {
     _default_hardware_id = hardware_id;
 }
 
@@ -34,6 +34,7 @@ static const std::pair<uint32_t, const char *> ERROR_CAUSE_TABLE[] = {
     {ErrorCauseMotor3HallSensor, "Motor 3 Hall Sensor"},
     {ErrorCauseMotor4HallSensor, "Motor 4 Hall Sensor"},
     {ErrorCauseMotor5HallSensor, "Motor 5 Hall Sensor"},
+    {ErrorCauseArithmetic, "Arithmetic"},
 };
 
 static const std::pair<uint32_t, const char *> FAULT_CAUSE_TABLE[] = {
@@ -76,7 +77,7 @@ void createFpgaDiagnostics(const StreamDataStatus &status, diagnostic_msgs::msg:
     const uint32_t error_flags = status.error_flags;
     const uint32_t fault_flags = status.fault_flags;
 
-    if (diag.hardware_id.empty()){
+    if (diag.hardware_id.empty()) {
         diag.hardware_id = _default_hardware_id;
     }
 
