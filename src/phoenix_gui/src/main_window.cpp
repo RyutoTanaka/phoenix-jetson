@@ -306,7 +306,7 @@ void MainWindow::updateTelemertyTreeItems(void) {
         _TreeItems.battery.present->setText(COL, boolToString(msg->present));
         _TreeItems.battery.voltage->setText(COL, QString::number(msg->voltage, 'f', 3));
         _TreeItems.battery.current->setText(COL, QString::number(msg->current, 'f', 3));
-        _TreeItems.battery.temperature->setText(COL, QString::number(msg->temperature, 'f', 3));
+        _TreeItems.battery.temperature->setText(COL, QString::number(msg->temperature, 'f', 2));
     }
     if (_LastMessages.adc2) {
         // auto msg = std::atomic_exchange(&_LastMessages.adc2, std::shared_ptr<phoenix_msgs::msg::StreamDataAdc2>());
@@ -641,11 +641,11 @@ void MainWindow::updateDiagnosticsInformation(TreeItems_t::DiagnosticItems_t &it
     static const QString none("none");
     bool error_occured = false, fault_occured = false;
     for (auto &item : status.values) {
-        if (!error_occured && (item.key == "Error Flags")) {
+        if (!error_occured && (item.key == "Error Causes")) {
             items.error->setText(COL, QString::fromStdString(item.value));
             error_occured = true;
         }
-        else if (!fault_occured && (item.key == "Fault Flags")) {
+        else if (!fault_occured && (item.key == "Fault Causes")) {
             items.fault->setText(COL, QString::fromStdString(item.value));
             fault_occured = true;
         }
