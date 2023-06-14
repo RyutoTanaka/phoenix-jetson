@@ -72,7 +72,7 @@ CommandNode::CommandNode(const rclcpp::NodeOptions &options)
     memset(&_shared_memory, 0, sizeof(_shared_memory));
 
     // パラメータ設定時に呼ばれるコールバックを設定する
-    _parameter_handler = add_on_set_parameters_callback(std::bind(&CommandNode::setParameterCallback, this, _1));
+    _parameter_handler = this->set_on_parameters_set_callback(std::bind(&CommandNode::setParameterCallback, this, _1));
 
     // パラメータを宣言し値を取得する
     auto device_path = declare_parameter<std::string>(command::PARAM_NAME_DEVICE_PATH, DEFAULT_DEVICE_PATH);

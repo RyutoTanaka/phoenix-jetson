@@ -93,7 +93,7 @@ private:
     rclcpp::Service<phoenix_msgs::srv::ProgramFpga>::SharedPtr _program_fpga_service;
 
     /// パラメータが設定されたとき呼ばれるコールバックを保持する
-    rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr _parameter_handler;
+    OnParametersSetCallbackType _parameter_handler;
     
     /// セルフテストの管理
     self_test::TestRunner _test_runner;
