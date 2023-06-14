@@ -10,18 +10,18 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package = 'phoenix',
-            namespace = namespace,
-            executable = 'stream',
+            node_namespace = namespace,
+            node_executable = 'stream',
             remappings = [("/tf", base_namespace + "/tf")],
         ),
         Node(
             package = 'phoenix',
-            namespace = namespace,
-            executable = 'battery'
+            node_namespace = namespace,
+            node_executable = 'battery'
         ),
         Node(
             package = 'phoenix',
-            namespace = namespace,
-            executable = 'command'
+            node_namespace = namespace,
+            node_executable = 'command'
         )
     ])
